@@ -2,7 +2,6 @@ import requests
 import time
 import random
 from datetime import datetime
-import json
 
 BOT_TOKEN = "8681554780:AAE8mKCm16HMqfdaLI-sKRxs3AAyx_gUQkU"
 CHAT_ID = "1624738454"
@@ -13,16 +12,21 @@ def send_message(text):
 
 def get_btc_data():
     try:
-        url = "https://api.binance.com/api/v3/klines"
-        params = {"symbol": "BTCUSDT", "interval": "1h", "limit": 100}
-        response = requests.get(url, params=params, timeout=10)
+        # Use CoinGecko API (free, no auth needed)
+        url = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
+        params = {"vs_currency": "usd", "days": "7", "interval": "hourly"}
+        response = requests.get(url, params=params, timeout=15)
         data = response.json()
         
-        closes = [float(candle[4]) for candle in data]
-        volumes = [float(candle[5]) for candle in data]
+        if "prices" not in data:
+            return None, None
         
-        return closes, volumes
+        prices = [p[1] for p in data["prices"]]
+        volumes = [v[1] for v in data.get("total_volumes", [])]
+        
+        return prices, volumes
     except Exception as e:
+        print(f"Error: {e}")
         return None, None
 
 def calculate_rsi(prices, period=14):
@@ -94,10 +98,6 @@ def analyze_and_predict():
         signals += 1
     else:
         signals -= 1
-    
-    avg_volume = sum(volumes[-20:]) / 20
-    if volumes[-1] > avg_volume * 1.5:
-        signals += 1 if signals > 0 else -1
     
     if signals >= 3:
         direction = "UP"
