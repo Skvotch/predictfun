@@ -1,30 +1,14 @@
 import requests
 import time
 import random
-import json
-import os
 from datetime import datetime
-from pathlib import Path
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-CHAT_ID = os.environ.get("CHAT_ID")
-DATA_FILE = "predictions.json"
+BOT_TOKEN = "8681554780:AAE8mKCm16HMqfdaLI-sKRxs3AAyx_gUQkU"
+CHAT_ID = "1624738454"
 
 def send_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
-
-def load_predictions():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
-    return []
-
-def save_prediction(prediction):
-    predictions = load_predictions()
-    predictions.append(prediction)
-    with open(DATA_FILE, "w") as f:
-        json.dump(predictions, f)
 
 def get_btc_data():
     try:
@@ -116,67 +100,24 @@ def analyze_and_predict():
     
     if signals >= 3:
         direction = "📈 UP"
-        direction_raw = "UP"
         confidence = min(85, 60 + signals * 5)
     elif signals >= 1:
         direction = "↗️ UP"
-        direction_raw = "UP"
         confidence = min(75, 55 + signals * 5)
     elif signals <= -3:
         direction = "📉 DOWN"
-        direction_raw = "DOWN"
         confidence = min(85, 60 + abs(signals) * 5)
     elif signals <= -1:
         direction = "↘️ DOWN"
-        direction_raw = "DOWN"
         confidence = min(75, 55 + abs(signals) * 5)
     else:
         direction = "➡️ SIDEWAYS"
-        direction_raw = "SIDEWAYS"
         confidence = 50 + abs(signals) * 5
     
     change_percent = (volatility * 0.5) * (signals / 3)
     predicted_price = current_price * (1 + change_percent / 100)
     
-    return current_price, direction, direction_raw, confidence, rsi, ma20, predicted_price, volatility
-
-def send_daily_stats():
-    predictions = load_predictions()
-    
-    if not predictions:
-        send_message("📊 No predictions yet!")
-        return
-    
-    today = datetime.now().strftime("%Y-%m-%d")
-    today_preds = [p for p in predictions if p.get("date", "").startswith(today)]
-    
-    total = len(predictions)
-    today_total = len(today_preds)
-    
-    correct = sum(1 for p in predictions if p.get("correct", False))
-    today_correct = sum(1 for p in today_preds if p.get("correct", False))
-    
-    accuracy = (correct / total * 100) if total > 0 else 0
-    today_accuracy = (today_correct / today_total * 100) if today_total > 0 else 0
-    
-    up_preds = sum(1 for p in predictions if p.get("direction") == "UP")
-    down_preds = sum(1 for p in predictions if p.get("direction") == "DOWN")
-    
-    message = f"""📊 BTC Prediction Stats
-
-📈 Total: {total} predictions
-✅ Correct: {correct} ({accuracy:.1f}%)
-
-📅 Today: {today_total} predictions
-✅ Today correct: {today_correct} ({today_accuracy:.1f}%)
-
-📊 Direction breakdown:
-  UP: {up_preds}
-  DOWN: {down_preds}
-
-⏰ Updated: {datetime.now().strftime('%H:%M')}"""
-    
-    send_message(message)
+    return current_price, direction, confidence, rsi, ma20, predicted_price, volatility
 
 def predict():
     result = analyze_and_predict()
@@ -184,35 +125,7 @@ def predict():
     if len(result) == 3:
         return
     
-    current_price, direction, direction_raw, confidence, rsi, ma20, predicted_price, volatility = result
-    
-    prediction = {
-        "date": datetime.now().isoformat(),
-        "price": current_price,
-        "direction": direction_raw,
-        "confidence": confidence,
-        "rsi": rsi,
-        "correct": None
-    }
-    save_prediction(prediction)
-    
-    predictions = load_predictions()
-    if len(predictions) >= 2:
-        prev = predictions[-2]
-        if prev.get("correct") is None:
-            price_change = current_price - prev["price"]
-            was_correct = False
-            if prev["direction"] == "UP" and price_change > 0:
-                was_correct = True
-            elif prev["direction"] == "DOWN" and price_change < 0:
-                was_correct = True
-            elif prev["direction"] == "SIDEWAYS" and abs(price_change) < prev["price"] * 0.01:
-                was_correct = True
-            
-            prev["correct"] = was_correct
-            predictions[-2] = prev
-            with open(DATA_FILE, "w") as f:
-                json.dump(predictions, f)
+    current_price, direction, confidence, rsi, ma20, predicted_price, volatility = result
     
     message = f"""📊 BTC Technical Analysis
 
@@ -229,12 +142,7 @@ def predict():
     send_message(message)
 
 if __name__ == "__main__":
-    current_hour_utc = datetime.utcnow().hour
-    
-    if current_hour_utc == 21:
-        send_daily_stats()
-    else:
-        send_message("🔔 BTC Predictor Started! Hourly updates with technical analysis.")
-        while True:
-            predict()
-            time.sleep(3600)
+    send_message("🔔 BTC Predictor Started! Hourly updates with technical analysis.")
+    while True:
+        predict()
+        time.sleep(3600)
