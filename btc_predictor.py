@@ -6,8 +6,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-BOT_TOKEN = "8681554780:AAE8mKCm16HMqfdaLI-sKRxs3AAyx_gUQkU"
-CHAT_ID = "1624738454"
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
 DATA_FILE = "predictions.json"
 
 def send_message(text):
@@ -147,11 +147,9 @@ def send_daily_stats():
         send_message("📊 No predictions yet!")
         return
     
-    # Get today's predictions
     today = datetime.now().strftime("%Y-%m-%d")
     today_preds = [p for p in predictions if p.get("date", "").startswith(today)]
     
-    # Calculate stats
     total = len(predictions)
     today_total = len(today_preds)
     
@@ -188,23 +186,20 @@ def predict():
     
     current_price, direction, direction_raw, confidence, rsi, ma20, predicted_price, volatility = result
     
-    # Save prediction
     prediction = {
         "date": datetime.now().isoformat(),
         "price": current_price,
         "direction": direction_raw,
         "confidence": confidence,
         "rsi": rsi,
-        "correct": None  # Will be updated next hour
+        "correct": None
     }
     save_prediction(prediction)
     
-    # Check previous prediction
     predictions = load_predictions()
     if len(predictions) >= 2:
         prev = predictions[-2]
         if prev.get("correct") is None:
-            # Calculate if previous was correct
             price_change = current_price - prev["price"]
             was_correct = False
             if prev["direction"] == "UP" and price_change > 0:
@@ -234,7 +229,6 @@ def predict():
     send_message(message)
 
 if __name__ == "__main__":
-    # Check if it's 00:00 MSK (21:00 UTC)
     current_hour_utc = datetime.utcnow().hour
     
     if current_hour_utc == 21:
