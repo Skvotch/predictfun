@@ -64,9 +64,10 @@ def analyze_and_predict():
     
     if not closes:
         send_message("❌ Error fetching data. Using fallback.")
-        return random.uniform(80000, 95000), "UNKNOWN", 50
+        return random.uniform(80000, 95000), "UNKNOWN", 50, 0
     
     current_price = closes[-1]
+    prev_close = closes[-2]  # Previous hour close
     rsi = calculate_rsi(closes)
     ma20 = calculate_ma(closes, 20)
     ma50 = calculate_ma(closes, 50) if len(closes) >= 50 else ma20
@@ -117,19 +118,27 @@ def analyze_and_predict():
     change_percent = (volatility * 0.5) * (signals / 3)
     predicted_price = current_price * (1 + change_percent / 100)
     
-    return current_price, direction, confidence, rsi, ma20, predicted_price, volatility
+    return current_price, direction, confidence, rsi, ma20, predicted_price, volatility, prev_close
 
 def predict():
     result = analyze_and_predict()
     
-    if len(result) == 3:
+    if len(result) == 4:
         return
     
-    current_price, direction, confidence, rsi, ma20, predicted_price, volatility = result
+    current_price, direction, confidence, rsi, ma20, predicted_price, volatility, prev_close = result
+    
+    # Calculate change from previous close
+    change = current_price - prev_close
+    change_pct = (change / prev_close) * 100
+    change_emoji = "🟢" if change > 0 else "🔴"
     
     message = f"""📊 BTC Technical Analysis
 
-💰 Current Price: ${current_price:,.2f}
+💰 Current: ${current_price:,.2f}
+🔒 Prev Close: ${prev_close:,.2f}
+{change_emoji} Change: {change:+.2f} ({change_pct:+.2f}%)
+
 🎯 Prediction: {direction}
 📈 Confidence: {confidence}%
 
