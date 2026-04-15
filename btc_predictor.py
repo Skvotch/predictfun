@@ -36,7 +36,7 @@ Time: {datetime.now().strftime('%H:%M')}"""
     send_message(message)
 
 if __name__ == "__main__":
-    send_message("BTC Predictor Started!")
+    send_message("BTC Predictor Started! Hourly updates.")
     while True:
         predict()
-        time.sleep(900)
+        time.sleep(3600)
