@@ -4,7 +4,7 @@ import random
 from datetime import datetime
 
 BOT_TOKEN = "8681554780:AAE8mKCm16HMqfdaLI-sKRxs3AAyx_gUQkU"
-CHAT_ID = "8681554780"
+CHAT_ID = "1624738454"
 
 def send_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
