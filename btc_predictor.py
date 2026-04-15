@@ -12,7 +12,6 @@ def send_message(text):
 
 def get_btc_data():
     try:
-        # Use CoinGecko API (free, no auth needed)
         url = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
         params = {"vs_currency": "usd", "days": "7", "interval": "hourly"}
         response = requests.get(url, params=params, timeout=15)
@@ -64,7 +63,7 @@ def analyze_and_predict():
     closes, volumes = get_btc_data()
     
     if not closes:
-        send_message("Error fetching data. Using fallback.")
+        send_message("❌ Error fetching data. Using fallback.")
         return random.uniform(80000, 95000), "UNKNOWN", 50
     
     current_price = closes[-1]
@@ -100,19 +99,19 @@ def analyze_and_predict():
         signals -= 1
     
     if signals >= 3:
-        direction = "UP"
+        direction = "📈 UP"
         confidence = min(85, 60 + signals * 5)
     elif signals >= 1:
-        direction = "UP"
+        direction = "↗️ UP"
         confidence = min(75, 55 + signals * 5)
     elif signals <= -3:
-        direction = "DOWN"
+        direction = "📉 DOWN"
         confidence = min(85, 60 + abs(signals) * 5)
     elif signals <= -1:
-        direction = "DOWN"
+        direction = "↘️ DOWN"
         confidence = min(75, 55 + abs(signals) * 5)
     else:
-        direction = "SIDEWAYS"
+        direction = "➡️ SIDEWAYS"
         confidence = 50 + abs(signals) * 5
     
     change_percent = (volatility * 0.5) * (signals / 3)
@@ -128,22 +127,22 @@ def predict():
     
     current_price, direction, confidence, rsi, ma20, predicted_price, volatility = result
     
-    message = f"""BTC Technical Analysis
+    message = f"""📊 BTC Technical Analysis
 
-Current: ${current_price:,.2f}
-Prediction: {direction}
-Confidence: {confidence}%
+💰 Current Price: ${current_price:,.2f}
+🎯 Prediction: {direction}
+📈 Confidence: {confidence}%
 
-RSI: {rsi:.1f}
-MA20: ${ma20:,.2f}
-Volatility: {volatility:.2f}%
+📉 RSI: {rsi:.1f}
+📊 MA20: ${ma20:,.2f}
+⚡ Volatility: {volatility:.2f}%
 
-Time: {datetime.now().strftime('%H:%M')}"""
+⏰ Time: {datetime.now().strftime('%H:%M')}"""
     
     send_message(message)
 
 if __name__ == "__main__":
-    send_message("BTC Predictor Started! Hourly updates with technical analysis.")
+    send_message("🔔 BTC Predictor Started! Hourly updates with technical analysis.")
     while True:
         predict()
         time.sleep(3600)
