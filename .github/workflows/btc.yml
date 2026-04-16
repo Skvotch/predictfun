@@ -2,40 +2,22 @@ name: BTC Predictor
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '5 * * * *'
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
   predict:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          
+        
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           
       - name: Install dependencies
-        run: |
-          pip install requests
+        run: pip install requests
           
       - name: Run predictor
         run: python btc_predictor.py
-        env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
-          
-      - name: Commit predictions
-        if: always()
-        run: |
-          git config --local user.email "vitospoltavcev@gmail.com"
-          git config --local user.name "Skvotch"
-          git add predictions.json
-          git commit -m "Update predictions" || echo "No changes to commit"
-          git push || echo "Push failed"
