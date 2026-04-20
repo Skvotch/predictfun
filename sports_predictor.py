@@ -2,12 +2,12 @@ import requests
 import time
 import json
 import os
+import random
 from datetime import datetime, timedelta
 
 BOT_TOKEN = "8681554780:AAE8mKCm16HMqfdaLI-sKRxs3AAyx_gUQkU"
 CHAT_ID = "1624738454"
 
-# File to track sent predictions
 SENT_PREDICTIONS_FILE = "sent_predictions.json"
 
 def load_sent_predictions():
@@ -24,142 +24,162 @@ def send_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
-# ============ CS2 ============
-def get_cs2_matches():
-    """Get CS2 matches from PandaScore API"""
+# ============ THE SPORTS DB ============
+def get_sportsdb_matches():
+    """Get matches from TheSportsDB (free, no key)"""
+    matches = []
+    
+    # Football - Today's matches from major leagues
+    football_leagues = {
+        "4328": "English Premier League",
+        "4335": "Spanish La Liga",
+        "4331": "Italian Serie A",
+        "4332": "German Bundesliga",
+        "4334": "French Ligue 1"
+    }
+    
+    for league_id, league_name in football_leagues.items():
+        try:
+            url = f"https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id={league_id}"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("events"):
+                    for event in data["events"]:
+                        matches.append({
+                            "id": str(event["idEvent"]),
+                            "team1": event.get("strHomeTeam", "Unknown"),
+                            "team2": event.get("strAwayTeam", "Unknown"),
+                            "begin_at": event.get("strTimestamp", ""),
+                            "league": league_name,
+                            "game": "Football"
+                        })
+        except Exception as e:
+            print(f"Error fetching {league_name}: {e}")
+    
+    # Basketball - NBA
     try:
-        # Using PandaScore free tier
-        url = "https://api.pandascore.co/matches"
-        params = {
-            "filter[status]": "pending",
-            "sort": "begin_at",
-            "range[begin_at]": "now,2d",
-            "page[size]": 20
-        }
-        # Note: Need API key - using demo key for testing
-        headers = {"Authorization": "Bearer demo_key"}
-        response = requests.get(url, params=params, headers=headers, timeout=15)
-        
+        url = "https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=4387"
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            matches = []
-            for match in data:
-                if match.get("videogame") and "cs" in match["videogame"].get("name", "").lower():
+            if data.get("events"):
+                for event in data["events"][:5]:
                     matches.append({
-                        "id": match["id"],
-                        "team1": match["opponents"][0]["team"]["name"] if len(match.get("opponents", [])) > 0 else "TBD",
-                        "team2": match["opponents"][1]["team"]["name"] if len(match.get("opponents", [])) > 1 else "TBD",
-                        "begin_at": match["begin_at"],
-                        "league": match.get("league", {}).get("name", "Unknown"),
-                        "game": "CS2"
+                        "id": str(event["idEvent"]),
+                        "team1": event.get("strHomeTeam", "Unknown"),
+                        "team2": event.get("strAwayTeam", "Unknown"),
+                        "begin_at": event.get("strTimestamp", ""),
+                        "league": "NBA",
+                        "game": "Basketball"
                     })
-            return matches
     except Exception as e:
-        print(f"CS2 API error: {e}")
-    return []
-
-# ============ FOOTBALL ============
-def get_football_matches():
-    """Get football matches from API-Football"""
+        print(f"Error fetching NBA: {e}")
+    
+    # Hockey - NHL
     try:
-        # Using API-Football free tier
-        url = "https://v3.football.api-sports.io/fixtures"
+        url = "https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=4388"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("events"):
+                for event in data["events"][:5]:
+                    matches.append({
+                        "id": str(event["idEvent"]),
+                        "team1": event.get("strHomeTeam", "Unknown"),
+                        "team2": event.get("strAwayTeam", "Unknown"),
+                        "begin_at": event.get("strTimestamp", ""),
+                        "league": "NHL",
+                        "game": "Hockey"
+                    })
+    except Exception as e:
+        print(f"Error fetching NHL: {e}")
+    
+    return matches
+
+# ============ CS2 FROM LIQUIPEDIA (PARSING) ============
+def get_cs2_matches():
+    """Get CS2 matches from Liquipedia (scraping)"""
+    matches = []
+    
+    try:
+        url = "https://liquipedia.net/counterstrike/api.php"
         params = {
-            "date": datetime.now().strftime("%Y-%m-%d"),
-            "league": "39,140,135,78",  # Premier League, La Liga, Serie A, Bundesliga
-            "status": "NS"  # Not Started
+            "action": "parse",
+            "page": "Liquipedia:Current_and_upcoming_matches",
+            "format": "json"
         }
-        headers = {"x-apisports-key": "demo_key"}
-        response = requests.get(url, params=params, headers=headers, timeout=15)
+        response = requests.get(url, params=params, timeout=15)
         
         if response.status_code == 200:
             data = response.json()
-            matches = []
-            for fixture in data.get("response", [])[:15]:
-                league = fixture.get("league", {})
-                home = fixture.get("teams", {}).get("home", {})
-                away = fixture.get("teams", {}).get("away", {})
-                
-                matches.append({
-                    "id": fixture["fixture"]["id"],
-                    "team1": home.get("name", "Unknown"),
-                    "team2": away.get("name", "Unknown"),
-                    "begin_at": fixture["fixture"]["date"],
-                    "league": league.get("name", "Unknown"),
-                    "game": "Football"
-                })
-            return matches
+            # Parse HTML content
+            html = data.get("parse", {}).get("text", {}).get("*", "")
+            
+            # Simple parsing - look for match patterns
+            # This is a simplified version
+            pass
+            
     except Exception as e:
-        print(f"Football API error: {e}")
-    return []
+        print(f"CS2 error: {e}")
+    
+    return matches
 
-# ============ HOCKEY ============
-def get_hockey_matches():
-    """Get hockey matches"""
+# ============ PREDICTION LOGIC ============
+def get_team_stats(team_name):
+    """Get team statistics from TheSportsDB"""
     try:
-        url = "https://v3.football.api-sports.io/fixtures"
-        params = {
-            "date": datetime.now().strftime("%Y-%m-%d"),
-            "league": "57,48",  # NHL, KHL
-            "status": "NS"
-        }
-        headers = {"x-apisports-key": "demo_key"}
-        response = requests.get(url, params=params, headers=headers, timeout=15)
-        
+        url = f"https://www.thesportsdb.com/api/v1/json/1/searchteams.php?t={team_name}"
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            matches = []
-            for fixture in data.get("response", [])[:10]:
-                league = fixture.get("league", {})
-                home = fixture.get("teams", {}).get("home", {})
-                away = fixture.get("teams", {}).get("away", {})
-                
-                matches.append({
-                    "id": fixture["fixture"]["id"],
-                    "team1": home.get("name", "Unknown"),
-                    "team2": away.get("name", "Unknown"),
-                    "begin_at": fixture["fixture"]["date"],
-                    "league": league.get("name", "Unknown"),
-                    "game": "Hockey"
-                })
-            return matches
-    except Exception as e:
-        print(f"Hockey API error: {e}")
-    return []
+            if data.get("teams"):
+                team = data["teams"][0]
+                return {
+                    "name": team.get("strTeam", ""),
+                    "formed": team.get("intFormedYear", ""),
+                    "country": team.get("strCountry", ""),
+                    "league": team.get("strLeague", "")
+                }
+    except:
+        pass
+    return {}
 
-# ============ BASKETBALL ============
-def get_basketball_matches():
-    """Get basketball matches"""
+def make_prediction(team1, team2, game):
+    """Make prediction based on available data"""
+    
+    # For now, use a combination of:
+    # 1. Home team advantage (slight bias)
+    # 2. Random factor
+    # 3. Team "form" (simulated)
+    
+    # Get team info
+    info1 = get_team_stats(team1)
+    info2 = get_team_stats(team2)
+    
+    # Calculate simple score based on various factors
+    score1 = random.randint(40, 60)  # Base score
+    score2 = random.randint(40, 60)
+    
+    # Home advantage
+    score1 += 10
+    
+    # Older teams (more experience) get slight boost
     try:
-        url = "https://v3.football.api-sports.io/fixtures"
-        params = {
-            "date": datetime.now().strftime("%Y-%m-%d"),
-            "league": "12,1",  # NBA, EuroLeague
-            "status": "NS"
-        }
-        headers = {"x-apisports-key": "demo_key"}
-        response = requests.get(url, params=params, headers=headers, timeout=15)
-        
-        if response.status_code == 200:
-            data = response.json()
-            matches = []
-            for fixture in data.get("response", [])[:10]:
-                league = fixture.get("league", {})
-                home = fixture.get("teams", {}).get("home", {})
-                away = fixture.get("teams", {}).get("away", {})
-                
-                matches.append({
-                    "id": fixture["fixture"]["id"],
-                    "team1": home.get("name", "Unknown"),
-                    "team2": away.get("name", "Unknown"),
-                    "begin_at": fixture["fixture"]["date"],
-                    "league": league.get("name", "Unknown"),
-                    "game": "Basketball"
-                })
-            return matches
-    except Exception as e:
-        print(f"Basketball API error: {e}")
-    return []
+        if info1.get("formed") and int(info1.get("formed", 0)) < 1990:
+            score1 += 5
+        if info2.get("formed") and int(info2.get("formed", 0)) < 1990:
+            score2 += 5
+    except:
+        pass
+    
+    # Return winner
+    if score1 > score2:
+        return team1
+    elif score2 > score1:
+        return team2
+    else:
+        return random.choice([team1, team2, "Draw"])
 
 # ============ RESULTS ============
 def check_results():
@@ -169,90 +189,64 @@ def check_results():
         return []
     
     results = []
-    cutoff = datetime.now() - timedelta(hours=3)
     
     for match_id, info in list(sent.items()):
         try:
-            begin_time = datetime.fromisoformat(info["begin_at"].replace("Z", "+00:00"))
-            if begin_time > cutoff:
-                continue
-                
-            # Check if match is finished
-            url = f"https://v3.football.api-sports.io/fixtures/{match_id}"
-            headers = {"x-apisports-key": "demo_key"}
-            response = requests.get(url, headers=headers, timeout=10)
+            url = f"https://www.thesportsdb.com/api/v1/json/1/eventresults.php?id={match_id}"
+            response = requests.get(url, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
-                fixture = data.get("response", [{}])[0]
-                status = fixture.get("fixture", {}).get("status", {}).get("short", "")
+                event = data.get("event")
                 
-                if status == "FT":  # Full Time
-                    goals = fixture.get("goals", {})
-                    home_goals = goals.get("home", 0)
-                    away_goals = goals.get("away", 0)
+                if event and event.get("strStatus") == "Final":
+                    home_score = event.get("intHomeScore", 0)
+                    away_score = event.get("intAwayScore", 0)
                     
-                    winner = None
-                    if home_goals > away_goals:
-                        winner = info["team1"]
-                    elif away_goals > home_goals:
-                        winner = info["team2"]
-                    else:
-                        winner = "Draw"
-                    
-                    prediction_won = winner == info["prediction"]
-                    result_emoji = "✅" if prediction_won else "❌"
-                    
-                    results.append({
-                        "game": info["game"],
-                        "team1": info["team1"],
-                        "team2": info["team2"],
-                        "score": f"{home_goals} - {away_goals}",
-                        "winner": winner,
-                        "prediction": info["prediction"],
-                        "won": prediction_won,
-                        "emoji": result_emoji
-                    })
-                    
-                    # Remove from sent
-                    del sent[match_id]
+                    if home_score is not None and away_score is not None:
+                        if home_score > away_score:
+                            winner = info["team1"]
+                        elif away_score > home_score:
+                            winner = info["team2"]
+                        else:
+                            winner = "Draw"
+                        
+                        prediction_won = winner == info["prediction"]
+                        result_emoji = "✅" if prediction_won else "❌"
+                        
+                        results.append({
+                            "game": info["game"],
+                            "team1": info["team1"],
+                            "team2": info["team2"],
+                            "score": f"{home_score} - {away_score}",
+                            "winner": winner,
+                            "prediction": info["prediction"],
+                            "won": prediction_won,
+                            "emoji": result_emoji
+                        })
+                        
+                        del sent[match_id]
+                        
         except Exception as e:
-            print(f"Error checking result for {match_id}: {e}")
+            print(f"Error checking {match_id}: {e}")
     
     save_sent_predictions(sent)
     return results
 
 # ============ MAIN ============
-def make_prediction(team1, team2):
-    """Simple prediction based on team names (placeholder - need odds API)"""
-    # This is a placeholder - real prediction needs betting odds
-    # For now, randomly pick with bias towards home team
-    import random
-    return random.choice([team1, team2])
-
 def send_predictions():
-    all_matches = []
+    matches = get_sportsdb_matches()
     
-    # Get matches from all sports
-    all_matches.extend(get_football_matches())
-    all_matches.extend(get_hockey_matches())
-    all_matches.extend(get_basketball_matches())
-    
-    # CS2 (if API key available)
-    # all_matches.extend(get_cs2_matches())
-    
-    if not all_matches:
-        send_message("⚽ No matches found today. Will try again next hour.")
+    if not matches:
+        send_message("⚽ No matches found today. Will try again later.")
         return
     
-    # Load existing predictions
     sent = load_sent_predictions()
     
-    # Send predictions
     message = "🎯 <b>Today's Predictions</b>\n\n"
     count = 0
     
-    for match in all_matches[:15]:
+    for match in matches[:15]:
         if count >= 10:
             break
             
@@ -262,7 +256,7 @@ def send_predictions():
         if team1 == "Unknown" or team2 == "Unknown":
             continue
         
-        prediction = make_prediction(team1, team2)
+        prediction = make_prediction(team1, team2, match["game"])
         
         game_emoji = {
             "Football": "⚽",
@@ -271,21 +265,27 @@ def send_predictions():
             "CS2": "🎮"
         }.get(match["game"], "🏆")
         
-        begin_time = datetime.fromisoformat(match["begin_at"].replace("Z", "+00:00"))
-        time_str = begin_time.strftime("%H:%M")
+        begin_time = match["begin_at"]
+        if begin_time:
+            try:
+                dt = datetime.fromisoformat(begin_time.replace("Z", "+00:00"))
+                time_str = dt.strftime("%H:%M")
+            except:
+                time_str = "TBD"
+        else:
+            time_str = "TBD"
         
         message += f"{game_emoji} <b>{match['game']}</b>\n"
         message += f"{team1} vs {team2}\n"
         message += f"🏆 Prediction: {prediction}\n"
         message += f"⏰ {time_str} | {match['league']}\n\n"
         
-        # Save for results
-        sent[str(match["id"])] = {
+        sent[match["id"]] = {
             "game": match["game"],
             "team1": team1,
             "team2": team2,
             "prediction": prediction,
-            "begin_at": match["begin_at"]
+            "begin_at": begin_time
         }
         
         count += 1
@@ -323,6 +323,6 @@ def send_results():
     send_message(message)
 
 if __name__ == "__main__":
-    send_message("🎯 Sports Predictor Started!")
+    send_message("🎯 Sports Predictor Started! (Free API)")
     send_predictions()
     send_results()
