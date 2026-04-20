@@ -11,7 +11,7 @@ CHAT_ID = "1624738454"
 SENT_PREDICTIONS_FILE = "sent_predictions.json"
 
 def load_sent_predictions():
-    if os.path.exists(SENT_PREDICTICTIONS_FILE):
+    if os.path.exists(SENT_PREDICTIONS_FILE):
         with open(SENT_PREDICTIONS_FILE, 'r') as f:
             return json.load(f)
     return {}
@@ -47,7 +47,6 @@ def get_sportsdb_matches():
                 data = response.json()
                 if data.get("events"):
                     for event in data["events"]:
-                        # Verify it's a valid match with both teams
                         home_team = event.get("strHomeTeam", "")
                         away_team = event.get("strAwayTeam", "")
                         
@@ -109,6 +108,7 @@ def get_sportsdb_matches():
     
     return matches
 
+
 # ============ PREDICTION LOGIC ============
 def get_team_info(team_name):
     """Get team information"""
@@ -129,14 +129,13 @@ def get_team_info(team_name):
         pass
     return {}
 
+
 def make_prediction(team1, team2, game):
     """Make prediction based on available data"""
     
-    # Get team info
     info1 = get_team_info(team1)
     info2 = get_team_info(team2)
     
-    # Calculate score
     score1 = random.randint(40, 60)
     score2 = random.randint(40, 60)
     
@@ -158,6 +157,7 @@ def make_prediction(team1, team2, game):
         return team2
     else:
         return random.choice([team1, team2, "Draw"])
+
 
 # ============ RESULTS ============
 def check_results():
@@ -210,6 +210,7 @@ def check_results():
     
     save_sent_predictions(sent)
     return results
+
 
 # ============ MAIN ============
 def send_predictions():
@@ -269,6 +270,7 @@ def send_predictions():
     message += f"📊 Total: {count} predictions"
     send_message(message)
 
+
 def send_results():
     results = check_results()
     if not results:
@@ -296,6 +298,7 @@ def send_results():
     win_rate = (wins / total * 100) if total > 0 else 0
     message += f"📈 Win Rate: {wins}/{total} ({win_rate:.0f}%)"
     send_message(message)
+
 
 if __name__ == "__main__":
     send_message("🎯 Sports Predictor Started! (Fixed)")
