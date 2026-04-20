@@ -11,7 +11,7 @@ CHAT_ID = "1624738454"
 SENT_PREDICTIONS_FILE = "sent_predictions.json"
 
 def load_sent_predictions():
-    if os.path.exists(SENT_PREDICTIONS_FILE):
+    if os.path.exists(SENT_PREDICTICTIONS_FILE):
         with open(SENT_PREDICTIONS_FILE, 'r') as f:
             return json.load(f)
     return {}
@@ -24,18 +24,19 @@ def send_message(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
-# ============ THE SPORTS DB ============
+
+# ============ THE SPORTS DB - CORRECT LEAGUE IDS ============
 def get_sportsdb_matches():
     """Get matches from TheSportsDB (free, no key)"""
     matches = []
     
-    # Football - Today's matches from major leagues
+    # Correct league IDs for TheSportsDB free API
     football_leagues = {
-        "4328": "English Premier League",
-        "4335": "Spanish La Liga",
-        "4331": "Italian Serie A",
-        "4332": "German Bundesliga",
-        "4334": "French Ligue 1"
+        "4480": "Premier League",
+        "4537": "La Liga",
+        "4562": "Serie A",
+        "4481": "Bundesliga",
+        "4554": "Ligue 1"
     }
     
     for league_id, league_name in football_leagues.items():
@@ -46,14 +47,19 @@ def get_sportsdb_matches():
                 data = response.json()
                 if data.get("events"):
                     for event in data["events"]:
-                        matches.append({
-                            "id": str(event["idEvent"]),
-                            "team1": event.get("strHomeTeam", "Unknown"),
-                            "team2": event.get("strAwayTeam", "Unknown"),
-                            "begin_at": event.get("strTimestamp", ""),
-                            "league": league_name,
-                            "game": "Football"
-                        })
+                        # Verify it's a valid match with both teams
+                        home_team = event.get("strHomeTeam", "")
+                        away_team = event.get("strAwayTeam", "")
+                        
+                        if home_team and away_team and home_team != "Unknown" and away_team != "Unknown":
+                            matches.append({
+                                "id": str(event["idEvent"]),
+                                "team1": home_team,
+                                "team2": away_team,
+                                "begin_at": event.get("strTimestamp", ""),
+                                "league": league_name,
+                                "game": "Football"
+                            })
         except Exception as e:
             print(f"Error fetching {league_name}: {e}")
     
@@ -65,14 +71,17 @@ def get_sportsdb_matches():
             data = response.json()
             if data.get("events"):
                 for event in data["events"][:5]:
-                    matches.append({
-                        "id": str(event["idEvent"]),
-                        "team1": event.get("strHomeTeam", "Unknown"),
-                        "team2": event.get("strAwayTeam", "Unknown"),
-                        "begin_at": event.get("strTimestamp", ""),
-                        "league": "NBA",
-                        "game": "Basketball"
-                    })
+                    home_team = event.get("strHomeTeam", "")
+                    away_team = event.get("strAwayTeam", "")
+                    if home_team and away_team:
+                        matches.append({
+                            "id": str(event["idEvent"]),
+                            "team1": home_team,
+                            "team2": away_team,
+                            "begin_at": event.get("strTimestamp", ""),
+                            "league": "NBA",
+                            "game": "Basketball"
+                        })
     except Exception as e:
         print(f"Error fetching NBA: {e}")
     
@@ -84,50 +93,25 @@ def get_sportsdb_matches():
             data = response.json()
             if data.get("events"):
                 for event in data["events"][:5]:
-                    matches.append({
-                        "id": str(event["idEvent"]),
-                        "team1": event.get("strHomeTeam", "Unknown"),
-                        "team2": event.get("strAwayTeam", "Unknown"),
-                        "begin_at": event.get("strTimestamp", ""),
-                        "league": "NHL",
-                        "game": "Hockey"
-                    })
+                    home_team = event.get("strHomeTeam", "")
+                    away_team = event.get("strAwayTeam", "")
+                    if home_team and away_team:
+                        matches.append({
+                            "id": str(event["idEvent"]),
+                            "team1": home_team,
+                            "team2": away_team,
+                            "begin_at": event.get("strTimestamp", ""),
+                            "league": "NHL",
+                            "game": "Hockey"
+                        })
     except Exception as e:
         print(f"Error fetching NHL: {e}")
     
     return matches
 
-# ============ CS2 FROM LIQUIPEDIA (PARSING) ============
-def get_cs2_matches():
-    """Get CS2 matches from Liquipedia (scraping)"""
-    matches = []
-    
-    try:
-        url = "https://liquipedia.net/counterstrike/api.php"
-        params = {
-            "action": "parse",
-            "page": "Liquipedia:Current_and_upcoming_matches",
-            "format": "json"
-        }
-        response = requests.get(url, params=params, timeout=15)
-        
-        if response.status_code == 200:
-            data = response.json()
-            # Parse HTML content
-            html = data.get("parse", {}).get("text", {}).get("*", "")
-            
-            # Simple parsing - look for match patterns
-            # This is a simplified version
-            pass
-            
-    except Exception as e:
-        print(f"CS2 error: {e}")
-    
-    return matches
-
 # ============ PREDICTION LOGIC ============
-def get_team_stats(team_name):
-    """Get team statistics from TheSportsDB"""
+def get_team_info(team_name):
+    """Get team information"""
     try:
         url = f"https://www.thesportsdb.com/api/v1/json/1/searchteams.php?t={team_name}"
         response = requests.get(url, timeout=10)
@@ -148,23 +132,18 @@ def get_team_stats(team_name):
 def make_prediction(team1, team2, game):
     """Make prediction based on available data"""
     
-    # For now, use a combination of:
-    # 1. Home team advantage (slight bias)
-    # 2. Random factor
-    # 3. Team "form" (simulated)
-    
     # Get team info
-    info1 = get_team_stats(team1)
-    info2 = get_team_stats(team2)
+    info1 = get_team_info(team1)
+    info2 = get_team_info(team2)
     
-    # Calculate simple score based on various factors
-    score1 = random.randint(40, 60)  # Base score
+    # Calculate score
+    score1 = random.randint(40, 60)
     score2 = random.randint(40, 60)
     
     # Home advantage
     score1 += 10
     
-    # Older teams (more experience) get slight boost
+    # Older teams get slight boost
     try:
         if info1.get("formed") and int(info1.get("formed", 0)) < 1990:
             score1 += 5
@@ -173,7 +152,6 @@ def make_prediction(team1, team2, game):
     except:
         pass
     
-    # Return winner
     if score1 > score2:
         return team1
     elif score2 > score1:
@@ -200,8 +178,8 @@ def check_results():
                 event = data.get("event")
                 
                 if event and event.get("strStatus") == "Final":
-                    home_score = event.get("intHomeScore", 0)
-                    away_score = event.get("intAwayScore", 0)
+                    home_score = event.get("intHomeScore")
+                    away_score = event.get("intAwayScore")
                     
                     if home_score is not None and away_score is not None:
                         if home_score > away_score:
@@ -252,9 +230,6 @@ def send_predictions():
             
         team1 = match["team1"]
         team2 = match["team2"]
-        
-        if team1 == "Unknown" or team2 == "Unknown":
-            continue
         
         prediction = make_prediction(team1, team2, match["game"])
         
@@ -323,6 +298,6 @@ def send_results():
     send_message(message)
 
 if __name__ == "__main__":
-    send_message("🎯 Sports Predictor Started! (Free API)")
+    send_message("🎯 Sports Predictor Started! (Fixed)")
     send_predictions()
     send_results()
