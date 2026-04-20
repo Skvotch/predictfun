@@ -27,13 +27,12 @@ def send_message(text):
 
 # ============ THE SPORTS DB - CORRECT LEAGUE IDS ============
 def get_sportsdb_matches():
-    """Get matches from TheSportsDB (free, no key)"""
     matches = []
     
-    # Correct league IDs for TheSportsDB free API
+    # CORRECT league IDs for TheSportsDB free API
     football_leagues = {
-        "4480": "Premier League",
-        "4537": "La Liga",
+        "4328": "Premier League",
+        "4335": "La Liga",
         "4562": "Serie A",
         "4481": "Bundesliga",
         "4554": "Ligue 1"
@@ -111,7 +110,6 @@ def get_sportsdb_matches():
 
 # ============ PREDICTION LOGIC ============
 def get_team_info(team_name):
-    """Get team information"""
     try:
         url = f"https://www.thesportsdb.com/api/v1/json/1/searchteams.php?t={team_name}"
         response = requests.get(url, timeout=10)
@@ -131,8 +129,6 @@ def get_team_info(team_name):
 
 
 def make_prediction(team1, team2, game):
-    """Make prediction based on available data"""
-    
     info1 = get_team_info(team1)
     info2 = get_team_info(team2)
     
@@ -161,7 +157,6 @@ def make_prediction(team1, team2, game):
 
 # ============ RESULTS ============
 def check_results():
-    """Check results for previously sent predictions"""
     sent = load_sent_predictions()
     if not sent:
         return []
@@ -301,6 +296,6 @@ def send_results():
 
 
 if __name__ == "__main__":
-    send_message("🎯 Sports Predictor Started! (Fixed)")
+    send_message("🎯 Sports Predictor (Correct League IDs)")
     send_predictions()
     send_results()
