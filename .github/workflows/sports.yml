@@ -1,0 +1,23 @@
+name: Sports Predictor
+
+on:
+  schedule:
+    - cron: '0 5,9,13,17,21 * * *'  # 4 times a day
+  workflow_dispatch:
+
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: pip install requests
+          
+      - name: Run predictor
+        run: python sports_predictor.py
