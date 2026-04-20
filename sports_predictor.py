@@ -25,11 +25,40 @@ def send_message(text):
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 
-# ============ THE SPORTS DB - CORRECT LEAGUE IDS ============
+# ============ BALLDONTLIE API (NBA - FREE NO KEY) ============
+def get_nba_matches():
+    """Get NBA games from Balldontlie API (free, no key)"""
+    matches = []
+    try:
+        # Get today's date
+        today = datetime.now().strftime("%Y-%m-%d")
+        url = f"https://www.balldontlie.io/api/v1/games?dates[]={today}&per_page=15"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("data"):
+                for game in data["data"]:
+                    home_team = game.get("home_team", {}).get("full_name", "")
+                    away_team = game.get("visitor_team", {}).get("full_name", "")
+                    
+                    if home_team and away_team:
+                        matches.append({
+                            "id": str(game["id"]),
+                            "team1": home_team,
+                            "team2": away_team,
+                            "begin_at": game.get("datetime", ""),
+                            "league": "NBA",
+                            "game": "Basketball"
+                        })
+    except Exception as e:
+        print(f"NBA error: {e}")
+    return matches
+
+
+# ============ THE SPORTS DB ============
 def get_sportsdb_matches():
     matches = []
     
-    # CORRECT league IDs for TheSportsDB free API
     football_leagues = {
         "4328": "Premier League",
         "4335": "La Liga",
@@ -60,50 +89,6 @@ def get_sportsdb_matches():
                             })
         except Exception as e:
             print(f"Error fetching {league_name}: {e}")
-    
-    # Basketball - NBA
-    try:
-        url = "https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=4387"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("events"):
-                for event in data["events"][:5]:
-                    home_team = event.get("strHomeTeam", "")
-                    away_team = event.get("strAwayTeam", "")
-                    if home_team and away_team:
-                        matches.append({
-                            "id": str(event["idEvent"]),
-                            "team1": home_team,
-                            "team2": away_team,
-                            "begin_at": event.get("strTimestamp", ""),
-                            "league": "NBA",
-                            "game": "Basketball"
-                        })
-    except Exception as e:
-        print(f"Error fetching NBA: {e}")
-    
-    # Hockey - NHL
-    try:
-        url = "https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id=4388"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("events"):
-                for event in data["events"][:5]:
-                    home_team = event.get("strHomeTeam", "")
-                    away_team = event.get("strAwayTeam", "")
-                    if home_team and away_team:
-                        matches.append({
-                            "id": str(event["idEvent"]),
-                            "team1": home_team,
-                            "team2": away_team,
-                            "begin_at": event.get("strTimestamp", ""),
-                            "league": "NHL",
-                            "game": "Hockey"
-                        })
-    except Exception as e:
-        print(f"Error fetching NHL: {e}")
     
     return matches
 
@@ -209,7 +194,13 @@ def check_results():
 
 # ============ MAIN ============
 def send_predictions():
-    matches = get_sportsdb_matches()
+    matches = []
+    
+    # Get football from TheSportsDB
+    matches.extend(get_sportsdb_matches())
+    
+    # Get NBA from Balldontlie
+    matches.extend(get_nba_matches())
     
     if not matches:
         send_message("⚽ No matches found today. Will try again later.")
@@ -296,6 +287,6 @@ def send_results():
 
 
 if __name__ == "__main__":
-    send_message("🎯 Sports Predictor (Correct League IDs)")
+    send_message("🎯 Sports Predictor (NBA via Balldontlie)")
     send_predictions()
     send_results()
