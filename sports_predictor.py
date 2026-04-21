@@ -25,37 +25,40 @@ def send_message(text):
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 
-# ============ BALLDONTLIE API (NBA - FREE NO KEY) ============
+# ============ BALLDONTLIE API (NBA) ============
 def get_nba_matches():
-    """Get NBA games from Balldontlie API (free, no key)"""
     matches = []
     try:
-        # Get today's date
-        today = datetime.now().strftime("%Y-%m-%d")
-        url = f"https://www.balldontlie.io/api/v1/games?dates[]={today}&per_page=15"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("data"):
-                for game in data["data"]:
-                    home_team = game.get("home_team", {}).get("full_name", "")
-                    away_team = game.get("visitor_team", {}).get("full_name", "")
-                    
-                    if home_team and away_team:
-                        matches.append({
-                            "id": str(game["id"]),
-                            "team1": home_team,
-                            "team2": away_team,
-                            "begin_at": game.get("datetime", ""),
-                            "league": "NBA",
-                            "game": "Basketball"
-                        })
+        # Get matches for today and tomorrow
+        today = datetime.now()
+        tomorrow = today + timedelta(days=1)
+        
+        for date in [today, tomorrow]:
+            date_str = date.strftime("%Y-%m-%d")
+            url = f"https://www.balldontlie.io/api/v1/games?dates[]={date_str}&per_page=15"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("data"):
+                    for game in data["data"]:
+                        home_team = game.get("home_team", {}).get("full_name", "")
+                        away_team = game.get("visitor_team", {}).get("full_name", "")
+                        
+                        if home_team and away_team:
+                            matches.append({
+                                "id": str(game["id"]),
+                                "team1": home_team,
+                                "team2": away_team,
+                                "begin_at": game.get("datetime", ""),
+                                "league": "NBA",
+                                "game": "Basketball"
+                            })
     except Exception as e:
         print(f"NBA error: {e}")
     return matches
 
 
-# ============ THE SPORTS DB ============
+# ============ THE SPORTS DB - NEXT 24 HOURS ============
 def get_sportsdb_matches():
     matches = []
     
@@ -69,12 +72,13 @@ def get_sportsdb_matches():
     
     for league_id, league_name in football_leagues.items():
         try:
+            # Get next 5 events (covers ~24 hours)
             url = f"https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id={league_id}"
             response = requests.get(url, timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 if data.get("events"):
-                    for event in data["events"]:
+                    for event in data["events"][:5]:
                         home_team = event.get("strHomeTeam", "")
                         away_team = event.get("strAwayTeam", "")
                         
@@ -196,19 +200,19 @@ def check_results():
 def send_predictions():
     matches = []
     
-    # Get football from TheSportsDB
+    # Get football from TheSportsDB (next 24h)
     matches.extend(get_sportsdb_matches())
     
-    # Get NBA from Balldontlie
+    # Get NBA from Balldontlie (today + tomorrow)
     matches.extend(get_nba_matches())
     
     if not matches:
-        send_message("⚽ No matches found today. Will try again later.")
+        send_message("⚽ No matches found. Will try again later.")
         return
     
     sent = load_sent_predictions()
     
-    message = "🎯 <b>Today's Predictions</b>\n\n"
+    message = "🎯 <b>Predictions (Next 24h)</b>\n\n"
     count = 0
     
     for match in matches[:15]:
@@ -231,7 +235,7 @@ def send_predictions():
         if begin_time:
             try:
                 dt = datetime.fromisoformat(begin_time.replace("Z", "+00:00"))
-                time_str = dt.strftime("%H:%M")
+                time_str = dt.strftime("%d.%m %H:%M")
             except:
                 time_str = "TBD"
         else:
@@ -287,6 +291,6 @@ def send_results():
 
 
 if __name__ == "__main__":
-    send_message("🎯 Sports Predictor (NBA via Balldontlie)")
+    send_message("🎯 Sports Predictions (Next 24h)")
     send_predictions()
     send_results()
