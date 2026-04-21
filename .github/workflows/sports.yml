@@ -2,7 +2,7 @@ name: Sports Predictor
 
 on:
   schedule:
-    - cron: '0 5,9,13,17,21 * * *'  # 4 times a day
+    - cron: '0 6,12,18,22 * * *'  # 4 times a day (6, 12, 18, 22 UTC)
   workflow_dispatch:
 
 jobs:
