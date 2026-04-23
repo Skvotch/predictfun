@@ -1,13 +1,14 @@
 import requests
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 BOT_TOKEN = "8681554780:AAE8mKCm16HMqfdaLI-sKRxs3AAyx_gUQkU"
 CHAT_ID = "1624738454"
 BETSTACK_API_KEY = "8466911183a9a0e6f2cc0b7441676e2da3df0e767d826f4232154d5af27a39a3"
 
 SENT_PREDICTIONS_FILE = "sent_predictions.json"
+
 
 def load_sent_predictions():
     if os.path.exists(SENT_PREDICTIONS_FILE):
@@ -29,50 +30,78 @@ def get_betstack_matches():
     matches = []
     headers = {"X-API-Key": BETSTACK_API_KEY}
     
-    leagues = [
+    # Try different league formats
+    league_tests = [
         ("american_basketball_nba", "NBA", "Basketball"),
+        ("basketball_nba", "NBA", "Basketball"),
+        ("nba", "NBA", "Basketball"),
         ("ice_hockey_nhl", "NHL", "Hockey"),
-        ("soccer_epl", "EPL", "Football"),
-        ("soccer_la_liga", "La Liga", "Football"),
+        ("hockey_nhl", "NHL", "Hockey"),
+        ("nhl", "NHL", "Hockey"),
     ]
     
-    for league_slug, league_name, game_type in leagues:
+    for league_slug, league_name, game_type in league_tests:
         try:
-            url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=15"
+            url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=20"
             response = requests.get(url, headers=headers, timeout=15)
-            print(f"{league_name}: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
-                print(f"{league_name} data: {data}")
-                
-                # Handle both array and object responses
                 events = data if isinstance(data, list) else data.get("data", [])
                 
                 for event in events:
+                    # Extract team names properly
                     home = event.get("home_team")
                     away = event.get("away_team")
                     
-                    if home and away:
-                        # Get moneyline from lines
-                        lines = event.get("lines", [])
-                        odds = {}
-                        for line in lines:
-                            if line.get("type") == "moneyline":
-                                odds["home_ml"] = line.get("home_price")
-                                odds["away_ml"] = line.get("away_price")
+                    # Handle both string and dict formats
+                    if isinstance(home, dict):
+                        home_name = home.get("name", "")
+                    else:
+                        home_name = str(home) if home else ""
                         
-                        matches.append({
-                            "id": str(event.get("id")),
-                            "team1": home,
-                            "team2": away,
-                            "begin_at": event.get("commence_time"),
-                            "league": league_name,
-                            "game": game_type,
-                            "odds": odds
-                        })
+                    if isinstance(away, dict):
+                        away_name = away.get("name", "")
+                    else:
+                        away_name = str(away) if away else ""
+                    
+                    if not home_name or not away_name:
+                        continue
+                    
+                    # Get commence_time
+                    commence = event.get("commence_time") or event.get("start_time") or ""
+                    
+                    # Parse date and filter to next 48 hours
+                    if commence:
+                        try:
+                            dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
+                            now = datetime.now(dt.tzinfo)
+                            hours_diff = (dt - now).total_seconds() / 3600
+                            # Only include matches in next 48 hours
+                            if hours_diff < 0 or hours_diff > 48:
+                                continue
+                        except:
+                            pass
+                    
+                    # Get odds from lines
+                    lines = event.get("lines", [])
+                    odds = {}
+                    for line in lines:
+                        if line.get("type") == "moneyline":
+                            odds["home_ml"] = line.get("home_price")
+                            odds["away_ml"] = line.get("away_price")
+                    
+                    matches.append({
+                        "id": str(event.get("id")),
+                        "team1": home_name,
+                        "team2": away_name,
+                        "begin_at": commence,
+                        "league": league_name,
+                        "game": game_type,
+                        "odds": odds
+                    })
         except Exception as e:
-            print(f"{league_name} error: {e}")
+            print(f"{league_slug} error: {e}")
     
     return matches
 
@@ -89,7 +118,6 @@ def make_prediction(match):
         try:
             home_val = int(home_ml)
             away_val = int(away_ml)
-            # Lower = favorite
             if home_val < away_val:
                 return team1
             elif away_val < home_val:
@@ -173,7 +201,7 @@ def send_predictions():
     matches = get_betstack_matches()
     
     if not matches:
-        send_message("🎯 No matches found from BetStack. Check API key.")
+        send_message("🎯 No upcoming matches in 48h. Try again later.")
         return
     
     sent = load_sent_predictions()
@@ -181,7 +209,7 @@ def send_predictions():
     message = "🎯 <b>Predictions (BetStack)</b>\n\n"
     count = 0
     
-    for match in matches[:12]:
+    for match in matches[:10]:
         if count >= 10:
             break
             
@@ -229,6 +257,7 @@ def send_predictions():
     save_sent_predictions(sent)
     message += f"📊 Total: {count} predictions"
     send_message(message)
+
 
 
 def send_results():
