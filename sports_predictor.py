@@ -2,7 +2,6 @@ import requests
 import time
 import json
 import os
-import random
 from datetime import datetime, timedelta
 
 BOT_TOKEN = "8681554780:AAE8mKCm16HMqfdaLI-sKRxs3AAyx_gUQkU"
@@ -28,164 +27,150 @@ def send_message(text):
 
 # ============ BETSTACK API ============
 def get_betstack_matches():
+    """Get matches from BetStack API"""
     matches = []
     headers = {"X-API-Key": BETSTACK_API_KEY}
     
     # NBA
     try:
-        url = "https://api.betstack.dev/api/v1/events?league=american_basketball_nba&status=pregame"
-        response = requests.get(url, headers=headers, timeout=10)
+        url = "https://api.betstack.dev/api/v1/events"
+        params = {"league": "american_basketball_nba", "status": "pre", "per_page": 10}
+        response = requests.get(url, headers=headers, params=params, timeout=15)
         if response.status_code == 200:
             data = response.json()
             if data.get("data"):
-                for event in data["data"][:5]:
+                for event in data["data"]:
                     home = event.get("home_team", {})
-                    away = event.get("visitor_team", {})
+                    away = event.get("away_team", {})
                     if home.get("name") and away.get("name"):
-                        odds = event.get("consensus_odds", {})
                         matches.append({
-                            "id": str(event["id"]),
-                            "team1": home["name"],
-                            "team2": away["name"],
-                            "begin_at": event.get("start_time", ""),
+                            "id": str(event.get("id")),
+                            "team1": home.get("name"),
+                            "team2": away.get("name"),
+                            "begin_at": event.get("start_time"),
                             "league": "NBA",
                             "game": "Basketball",
-                            "odds": odds
+                            "odds": event.get("consensus", {})
                         })
     except Exception as e:
-        print(f"BetStack NBA error: {e}")
+        print(f"NBA error: {e}")
     
     # NHL
     try:
-        url = "https://api.betstack.dev/api/v1/events?league=hockey_nhl&status=pregame"
-        response = requests.get(url, headers=headers, timeout=10)
+        url = "https://api.betstack.dev/api/v1/events"
+        params = {"league": "ice_hockey_nhl", "status": "pre", "per_page": 10}
+        response = requests.get(url, headers=headers, params=params, timeout=15)
         if response.status_code == 200:
             data = response.json()
             if data.get("data"):
-                for event in data["data"][:5]:
+                for event in data["data"]:
                     home = event.get("home_team", {})
-                    away = event.get("visitor_team", {})
+                    away = event.get("away_team", {})
                     if home.get("name") and away.get("name"):
-                        odds = event.get("consensus_odds", {})
                         matches.append({
-                            "id": str(event["id"]),
-                            "team1": home["name"],
-                            "team2": away["name"],
-                            "begin_at": event.get("start_time", ""),
+                            "id": str(event.get("id")),
+                            "team1": home.get("name"),
+                            "team2": away.get("name"),
+                            "begin_at": event.get("start_time"),
                             "league": "NHL",
                             "game": "Hockey",
-                            "odds": odds
+                            "odds": event.get("consensus", {})
                         })
     except Exception as e:
-        print(f"BetStack NHL error: {e}")
+        print(f"NHL error: {e}")
     
     # Soccer - EPL
     try:
-        url = "https://api.betstack.dev/api/v1/events?league=soccer_epl&status=pregame"
-        response = requests.get(url, headers=headers, timeout=10)
+        url = "https://api.betstack.dev/api/v1/events"
+        params = {"league": "soccer_epl", "status": "pre", "per_page": 10}
+        response = requests.get(url, headers=headers, params=params, timeout=15)
         if response.status_code == 200:
             data = response.json()
             if data.get("data"):
-                for event in data["data"][:5]:
+                for event in data["data"]:
                     home = event.get("home_team", {})
-                    away = event.get("visitor_team", {})
+                    away = event.get("away_team", {})
                     if home.get("name") and away.get("name"):
-                        odds = event.get("consensus_odds", {})
                         matches.append({
-                            "id": str(event["id"]),
-                            "team1": home["name"],
-                            "team2": away["name"],
-                            "begin_at": event.get("start_time", ""),
+                            "id": str(event.get("id")),
+                            "team1": home.get("name"),
+                            "team2": away.get("name"),
+                            "begin_at": event.get("start_time"),
                             "league": "EPL",
                             "game": "Football",
-                            "odds": odds
+                            "odds": event.get("consensus", {})
                         })
     except Exception as e:
-        print(f"BetStack EPL error: {e}")
+        print(f"EPL error: {e}")
+    
+    # Soccer - La Liga
+    try:
+        url = "https://api.betstack.dev/api/v1/events"
+        params = {"league": "soccer_la_liga", "status": "pre", "per_page": 10}
+        response = requests.get(url, headers=headers, params=params, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("data"):
+                for event in data["data"]:
+                    home = event.get("home_team", {})
+                    away = event.get("away_team", {})
+                    if home.get("name") and away.get("name"):
+                        matches.append({
+                            "id": str(event.get("id")),
+                            "team1": home.get("name"),
+                            "team2": away.get("name"),
+                            "begin_at": event.get("start_time"),
+                            "league": "La Liga",
+                            "game": "Football",
+                            "odds": event.get("consensus", {})
+                        })
+    except Exception as e:
+        print(f"La Liga error: {e}")
     
     return matches
 
 
-# ============ FALLBACK: THE SPORTS DB ============
-def get_sportsdb_matches():
-    matches = []
-    
-    football_leagues = {
-        "4328": "Premier League",
-        "4335": "La Liga",
-        "4562": "Serie A",
-        "4481": "Bundesliga",
-        "4554": "Ligue 1"
-    }
-    
-    for league_id, league_name in football_leagues.items():
-        try:
-            url = f"https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id={league_id}"
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("events"):
-                    for event in data["events"][:3]:
-                        home_team = event.get("strHomeTeam", "")
-                        away_team = event.get("strAwayTeam", "")
-                        
-                        if home_team and away_team and home_team != "Unknown":
-                            matches.append({
-                                "id": str(event["idEvent"]),
-                                "team1": home_team,
-                                "team2": away_team,
-                                "begin_at": event.get("strTimestamp", ""),
-                                "league": league_name,
-                                "game": "Football",
-                                "odds": {}
-                            })
-        except Exception as e:
-            print(f"Error fetching {league_name}: {e}")
-    
-    return matches
-
-
-# ============ PREDICTION LOGIC ============
 def make_prediction(match):
+    """Make prediction based on BetStack odds"""
+    odds = match.get("odds", {})
     team1 = match["team1"]
     team2 = match["team2"]
-    odds = match.get("odds", {})
     
-    if odds:
-        home_ml = odds.get("home_moneyline")
-        away_ml = odds.get("away_moneyline")
-        
-        if home_ml and away_ml:
-            if home_ml < away_ml:
-                return team1
-            elif away_ml < home_ml:
-                return team2
-    
-    score1 = random.randint(40, 60) + 10
-    score2 = random.randint(40, 60)
-    
-    if score1 > score2:
-        return team1
-    elif score2 > score1:
-        return team2
-    else:
-        return random.choice([team1, team2, "Draw"])
-
-
-def get_odds_text(odds):
-    if not odds:
-        return ""
-    
-    lines = []
+    # Get moneyline odds
     home_ml = odds.get("home_moneyline")
     away_ml = odds.get("away_moneyline")
     
-    if home_ml:
-        lines.append(f"Home: {home_ml}")
-    if away_ml:
-        lines.append(f"Away: {away_ml}")
+    # If we have odds, use them for prediction
+    if home_ml and away_ml:
+        # Lower odds = higher probability
+        if home_ml < away_ml:
+            return team1
+        elif away_ml < home_ml:
+            return team2
+        else:
+            return team1  # Default to home team
     
-    return " | " + ", ".join(lines) if lines else ""
+    # Fallback: home team advantage
+    return team1
+
+
+def get_odds_text(match):
+    """Format odds for display"""
+    odds = match.get("odds", {})
+    home_ml = odds.get("home_moneyline")
+    away_ml = odds.get("away_moneyline")
+    spread = odds.get("spread")
+    total = odds.get("total")
+    
+    text = ""
+    if home_ml and away_ml:
+        text += f"💰 ML: {team1} {home_ml} | {team2} {away_ml}\n"
+    if spread:
+        text += f"📊 Spread: {spread}\n"
+    if total:
+        text += f"🎯 Total: {total}\n"
+    
+    return text
 
 
 # ============ RESULTS ============
@@ -200,7 +185,7 @@ def check_results():
     for match_id, info in list(sent.items()):
         try:
             url = f"https://api.betstack.dev/api/v1/events/{match_id}"
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(url, headers=headers, timeout=15)
             
             if response.status_code == 200:
                 data = response.json()
@@ -208,46 +193,7 @@ def check_results():
                 
                 if event.get("status") == "final":
                     home_score = event.get("home_score")
-                    away_score = event.get("visitor_score")
-                    
-                    if home_score is not None and away_score is not None:
-                        if home_score > away_score:
-                            winner = info["team1"]
-                        elif away_score > home_score:
-                            winner = info["team2"]
-                        else:
-                            winner = "Draw"
-                        
-                        prediction_won = winner == info["prediction"]
-                        result_emoji = "✅" if prediction_won else "❌"
-                        
-                        results.append({
-                            "game": info["game"],
-                            "team1": info["team1"],
-                            "team2": info["team2"],
-                            "score": f"{home_score} - {away_score}",
-                            "winner": winner,
-                            "prediction": info["prediction"],
-                            "won": prediction_won,
-                            "emoji": result_emoji
-                        })
-                        
-                        del sent[match_id]
-                        continue
-        except:
-            pass
-        
-        try:
-            url = f"https://www.thesportsdb.com/api/v1/json/1/eventresults.php?id={match_id}"
-            response = requests.get(url, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                event = data.get("event")
-                
-                if event and event.get("strStatus") == "Final":
-                    home_score = event.get("intHomeScore")
-                    away_score = event.get("intAwayScore")
+                    away_score = event.get("away_score")
                     
                     if home_score is not None and away_score is not None:
                         if home_score > away_score:
@@ -282,21 +228,15 @@ def check_results():
 
 # ============ MAIN ============
 def send_predictions():
-    matches = []
-    
-    betstack_matches = get_betstack_matches()
-    matches.extend(betstack_matches)
+    matches = get_betstack_matches()
     
     if not matches:
-        matches.extend(get_sportsdb_matches())
-    
-    if not matches:
-        send_message("⚽ No matches found. Will try again later.")
+        send_message("🎯 No matches found. Will try again later.")
         return
     
     sent = load_sent_predictions()
     
-    message = "🎯 <b>Predictions (Next 24h)</b>\n\n"
+    message = "🎯 <b>Predictions (BetStack)</b>\n\n"
     count = 0
     
     for match in matches[:12]:
@@ -311,8 +251,7 @@ def send_predictions():
         game_emoji = {
             "Football": "⚽",
             "Hockey": "🏒",
-            "Basketball": "🏀",
-            "CS2": "🎮"
+            "Basketball": "🏀"
         }.get(match["game"], "🏆")
         
         begin_time = match["begin_at"]
@@ -325,11 +264,15 @@ def send_predictions():
         else:
             time_str = "TBD"
         
-        odds_text = get_odds_text(match.get("odds", {}))
-        
         message += f"{game_emoji} <b>{match['game']}</b>\n"
         message += f"{team1} vs {team2}\n"
-        message += f"🏆 Prediction: {prediction}{odds_text}\n"
+        message += f"🏆 Prediction: {prediction}\n"
+        
+        # Add odds if available
+        odds_text = get_odds_text(match)
+        if odds_text:
+            message += odds_text
+        
         message += f"⏰ {time_str} | {match['league']}\n\n"
         
         sent[match["id"]] = {
@@ -359,8 +302,7 @@ def send_results():
         game_emoji = {
             "Football": "⚽",
             "Hockey": "🏒",
-            "Basketball": "🏀",
-            "CS2": "🎮"
+            "Basketball": "🏀"
         }.get(r["game"], "🏆")
         
         message += f"{game_emoji} {r['team1']} vs {r['team2']}\n"
