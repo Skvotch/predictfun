@@ -1,8 +1,7 @@
 import requests
-import time
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 BOT_TOKEN = "8681554780:AAE8mKCm16HMqfdaLI-sKRxs3AAyx_gUQkU"
 CHAT_ID = "1624738454"
@@ -35,33 +34,43 @@ def get_betstack_matches():
         ("ice_hockey_nhl", "NHL", "Hockey"),
         ("soccer_epl", "EPL", "Football"),
         ("soccer_la_liga", "La Liga", "Football"),
-        ("soccer_bundesliga", "Bundesliga", "Football"),
-        ("soccer_ligue_1", "Ligue 1", "Football"),
-        ("soccer_serie_a", "Serie A", "Football")
     ]
     
     for league_slug, league_name, game_type in leagues:
         try:
-            url = "https://api.betstack.dev/api/v1/events"
-            params = {"league": league_slug, "status": "pre", "per_page": 10}
-            response = requests.get(url, headers=headers, params=params, timeout=15)
+            url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=15"
+            response = requests.get(url, headers=headers, timeout=15)
+            print(f"{league_name}: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
-                if data.get("data"):
-                    for event in data["data"]:
-                        home = event.get("home_team", {})
-                        away = event.get("away_team", {})
-                        if home.get("name") and away.get("name"):
-                            matches.append({
-                                "id": str(event.get("id")),
-                                "team1": home.get("name"),
-                                "team2": away.get("name"),
-                                "begin_at": event.get("start_time"),
-                                "league": league_name,
-                                "game": game_type,
-                                "odds": event.get("consensus", {})
-                            })
+                print(f"{league_name} data: {data}")
+                
+                # Handle both array and object responses
+                events = data if isinstance(data, list) else data.get("data", [])
+                
+                for event in events:
+                    home = event.get("home_team")
+                    away = event.get("away_team")
+                    
+                    if home and away:
+                        # Get moneyline from lines
+                        lines = event.get("lines", [])
+                        odds = {}
+                        for line in lines:
+                            if line.get("type") == "moneyline":
+                                odds["home_ml"] = line.get("home_price")
+                                odds["away_ml"] = line.get("away_price")
+                        
+                        matches.append({
+                            "id": str(event.get("id")),
+                            "team1": home,
+                            "team2": away,
+                            "begin_at": event.get("commence_time"),
+                            "league": league_name,
+                            "game": game_type,
+                            "odds": odds
+                        })
         except Exception as e:
             print(f"{league_name} error: {e}")
     
@@ -73,16 +82,20 @@ def make_prediction(match):
     team1 = match["team1"]
     team2 = match["team2"]
     
-    home_ml = odds.get("home_moneyline")
-    away_ml = odds.get("away_moneyline")
+    home_ml = odds.get("home_ml")
+    away_ml = odds.get("away_ml")
     
     if home_ml and away_ml:
-        if home_ml < away_ml:
-            return team1
-        elif away_ml < home_ml:
-            return team2
-        else:
-            return team1
+        try:
+            home_val = int(home_ml)
+            away_val = int(away_ml)
+            # Lower = favorite
+            if home_val < away_val:
+                return team1
+            elif away_val < home_val:
+                return team2
+        except:
+            pass
     
     return team1
 
@@ -92,14 +105,12 @@ def get_odds_text(match):
     team1 = match["team1"]
     team2 = match["team2"]
     
-    home_ml = odds.get("home_moneyline")
-    away_ml = odds.get("away_moneyline")
+    home_ml = odds.get("home_ml")
+    away_ml = odds.get("away_ml")
     
-    text = ""
     if home_ml and away_ml:
-        text += f"💰 {team1} {home_ml} | {team2} {away_ml}\n"
-    
-    return text
+        return f"💰 {team1} {home_ml} | {team2} {away_ml}\n"
+    return ""
 
 
 # ============ RESULTS ============
@@ -117,12 +128,14 @@ def check_results():
             response = requests.get(url, headers=headers, timeout=15)
             
             if response.status_code == 200:
-                data = response.json()
-                event = data.get("data", {})
+                event = response.json()
+                if isinstance(event, dict):
+                    event = event.get("data", event)
                 
-                if event.get("status") == "final":
-                    home_score = event.get("home_score")
-                    away_score = event.get("away_score")
+                result = event.get("result", {})
+                if result.get("final"):
+                    home_score = result.get("home_score")
+                    away_score = result.get("away_score")
                     
                     if home_score is not None and away_score is not None:
                         if home_score > away_score:
@@ -160,7 +173,7 @@ def send_predictions():
     matches = get_betstack_matches()
     
     if not matches:
-        send_message("🎯 No matches found. Will try again later.")
+        send_message("🎯 No matches found from BetStack. Check API key.")
         return
     
     sent = load_sent_predictions()
@@ -168,7 +181,7 @@ def send_predictions():
     message = "🎯 <b>Predictions (BetStack)</b>\n\n"
     count = 0
     
-    for match in matches[:15]:
+    for match in matches[:12]:
         if count >= 10:
             break
             
