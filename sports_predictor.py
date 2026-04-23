@@ -27,148 +27,77 @@ def send_message(text):
 
 # ============ BETSTACK API ============
 def get_betstack_matches():
-    """Get matches from BetStack API"""
     matches = []
     headers = {"X-API-Key": BETSTACK_API_KEY}
     
-    # NBA
-    try:
-        url = "https://api.betstack.dev/api/v1/events"
-        params = {"league": "american_basketball_nba", "status": "pre", "per_page": 10}
-        response = requests.get(url, headers=headers, params=params, timeout=15)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("data"):
-                for event in data["data"]:
-                    home = event.get("home_team", {})
-                    away = event.get("away_team", {})
-                    if home.get("name") and away.get("name"):
-                        matches.append({
-                            "id": str(event.get("id")),
-                            "team1": home.get("name"),
-                            "team2": away.get("name"),
-                            "begin_at": event.get("start_time"),
-                            "league": "NBA",
-                            "game": "Basketball",
-                            "odds": event.get("consensus", {})
-                        })
-    except Exception as e:
-        print(f"NBA error: {e}")
+    leagues = [
+        ("american_basketball_nba", "NBA", "Basketball"),
+        ("ice_hockey_nhl", "NHL", "Hockey"),
+        ("soccer_epl", "EPL", "Football"),
+        ("soccer_la_liga", "La Liga", "Football"),
+        ("soccer_bundesliga", "Bundesliga", "Football"),
+        ("soccer_ligue_1", "Ligue 1", "Football"),
+        ("soccer_serie_a", "Serie A", "Football")
+    ]
     
-    # NHL
-    try:
-        url = "https://api.betstack.dev/api/v1/events"
-        params = {"league": "ice_hockey_nhl", "status": "pre", "per_page": 10}
-        response = requests.get(url, headers=headers, params=params, timeout=15)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("data"):
-                for event in data["data"]:
-                    home = event.get("home_team", {})
-                    away = event.get("away_team", {})
-                    if home.get("name") and away.get("name"):
-                        matches.append({
-                            "id": str(event.get("id")),
-                            "team1": home.get("name"),
-                            "team2": away.get("name"),
-                            "begin_at": event.get("start_time"),
-                            "league": "NHL",
-                            "game": "Hockey",
-                            "odds": event.get("consensus", {})
-                        })
-    except Exception as e:
-        print(f"NHL error: {e}")
-    
-    # Soccer - EPL
-    try:
-        url = "https://api.betstack.dev/api/v1/events"
-        params = {"league": "soccer_epl", "status": "pre", "per_page": 10}
-        response = requests.get(url, headers=headers, params=params, timeout=15)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("data"):
-                for event in data["data"]:
-                    home = event.get("home_team", {})
-                    away = event.get("away_team", {})
-                    if home.get("name") and away.get("name"):
-                        matches.append({
-                            "id": str(event.get("id")),
-                            "team1": home.get("name"),
-                            "team2": away.get("name"),
-                            "begin_at": event.get("start_time"),
-                            "league": "EPL",
-                            "game": "Football",
-                            "odds": event.get("consensus", {})
-                        })
-    except Exception as e:
-        print(f"EPL error: {e}")
-    
-    # Soccer - La Liga
-    try:
-        url = "https://api.betstack.dev/api/v1/events"
-        params = {"league": "soccer_la_liga", "status": "pre", "per_page": 10}
-        response = requests.get(url, headers=headers, params=params, timeout=15)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("data"):
-                for event in data["data"]:
-                    home = event.get("home_team", {})
-                    away = event.get("away_team", {})
-                    if home.get("name") and away.get("name"):
-                        matches.append({
-                            "id": str(event.get("id")),
-                            "team1": home.get("name"),
-                            "team2": away.get("name"),
-                            "begin_at": event.get("start_time"),
-                            "league": "La Liga",
-                            "game": "Football",
-                            "odds": event.get("consensus", {})
-                        })
-    except Exception as e:
-        print(f"La Liga error: {e}")
+    for league_slug, league_name, game_type in leagues:
+        try:
+            url = "https://api.betstack.dev/api/v1/events"
+            params = {"league": league_slug, "status": "pre", "per_page": 10}
+            response = requests.get(url, headers=headers, params=params, timeout=15)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("data"):
+                    for event in data["data"]:
+                        home = event.get("home_team", {})
+                        away = event.get("away_team", {})
+                        if home.get("name") and away.get("name"):
+                            matches.append({
+                                "id": str(event.get("id")),
+                                "team1": home.get("name"),
+                                "team2": away.get("name"),
+                                "begin_at": event.get("start_time"),
+                                "league": league_name,
+                                "game": game_type,
+                                "odds": event.get("consensus", {})
+                            })
+        except Exception as e:
+            print(f"{league_name} error: {e}")
     
     return matches
 
 
 def make_prediction(match):
-    """Make prediction based on BetStack odds"""
     odds = match.get("odds", {})
     team1 = match["team1"]
     team2 = match["team2"]
     
-    # Get moneyline odds
     home_ml = odds.get("home_moneyline")
     away_ml = odds.get("away_moneyline")
     
-    # If we have odds, use them for prediction
     if home_ml and away_ml:
-        # Lower odds = higher probability
         if home_ml < away_ml:
             return team1
         elif away_ml < home_ml:
             return team2
         else:
-            return team1  # Default to home team
+            return team1
     
-    # Fallback: home team advantage
     return team1
 
 
 def get_odds_text(match):
-    """Format odds for display"""
     odds = match.get("odds", {})
+    team1 = match["team1"]
+    team2 = match["team2"]
+    
     home_ml = odds.get("home_moneyline")
     away_ml = odds.get("away_moneyline")
-    spread = odds.get("spread")
-    total = odds.get("total")
     
     text = ""
     if home_ml and away_ml:
-        text += f"💰 ML: {team1} {home_ml} | {team2} {away_ml}\n"
-    if spread:
-        text += f"📊 Spread: {spread}\n"
-    if total:
-        text += f"🎯 Total: {total}\n"
+        text += f"💰 {team1} {home_ml} | {team2} {away_ml}\n"
     
     return text
 
@@ -239,7 +168,7 @@ def send_predictions():
     message = "🎯 <b>Predictions (BetStack)</b>\n\n"
     count = 0
     
-    for match in matches[:12]:
+    for match in matches[:15]:
         if count >= 10:
             break
             
@@ -268,7 +197,6 @@ def send_predictions():
         message += f"{team1} vs {team2}\n"
         message += f"🏆 Prediction: {prediction}\n"
         
-        # Add odds if available
         odds_text = get_odds_text(match)
         if odds_text:
             message += odds_text
