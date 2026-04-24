@@ -27,6 +27,40 @@ def send_message(text):
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 
+# ============ TOP EUROPEAN TEAMS ============
+def is_top_team(team_name):
+    """Check if team is from top 5 leagues"""
+    top_teams = [
+        # Premier League
+        "Arsenal", "Aston Villa", "Brentford", "Brighton", "Burnley",
+        "Chelsea", "Crystal Palace", "Everton", "Fulham", "Liverpool",
+        "Manchester City", "Manchester United", "Newcastle", "Tottenham",
+        "West Ham", "Wolves", "Nottingham Forest", "Luton", "Sheffield United",
+        "Leicester", "Leeds", "Southampton", "West Brom", "Norwich",
+        # La Liga
+        "Barcelona", "Real Madrid", "Atletico Madrid", "Real Sociedad",
+        " Villarreal", "Sevilla", "Athletic Bilbao", "Real Betis", "Valencia",
+        "Celta Vigo", "Girona", "Alaves", "Osasuna", "Mallorca", "Granada",
+        # Serie A
+        "Inter", "Milan", "Juventus", "Napoli", "Roma", "Lazio",
+        "Atalanta", "Fiorentina", "Torino", "Bologna", "Monza",
+        "Udinese", "Sassuolo", "Lecce", "Salernitana", "Empoli",
+        # Bundesliga
+        "Bayern Munich", "Dortmund", "Leverkusen", "Leipzig", "Stuttgart",
+        "Frankfurt", "Wolfsburg", "Dortmund", "Hoffenheim", "Mönchengladbach",
+        "Union Berlin", "Freiburg", "Augsburg", "Bochum", "Köln",
+        # Ligue 1
+        "PSG", "Monaco", "Lille", "Marseille", "Lyon", "Nice",
+        "Rennes", "Lens", "Strasbourg", "Toulouse", "Nantes",
+        "Brest", "Montpellier", "Reims", "Metz", "Clermont", "Auxerre"
+    ]
+    team_lower = team_name.lower()
+    for t in top_teams:
+        if t.lower() in team_lower:
+            return True
+    return False
+
+
 # ============ TEAM DETECTION ============
 def get_team_name(team):
     if isinstance(team, dict):
@@ -34,35 +68,30 @@ def get_team_name(team):
     return str(team) if team else ""
 
 
+
 def detect_sport(home_team):
-    """Detect sport based on team name"""
     nhl_teams = ["Bruins", "Sabres", "Senators", "Hurricanes", "Kings", "Avalanche",
                  "Rangers", "Islanders", "Devils", "Penguins", "Flyers", "Capitals",
                  "Blackhawks", "Red Wings", "Predators", "Stars", "Flames", "Oilers",
                  "Canucks", "Golden Knights", "Panthers", "Lightning", "Blue Jackets",
                  "Maple Leafs", "Coyotes", "Blues", "Wild", "Ducks", "Sharks", "Kraken",
                  "Canadiens", "Montreal"]
-
     mlb_teams = ["Mets", "Twins", "Pirates", "Reds", "Tigers", "Orioles", "Red Sox",
                  "Yankees", "Dodgers", "Giants", "Cubs", "White Sox", "Astros", "Mariners",
                  "Phillies", "Braves", "Cardinals", "Padres", "Brewers", "Rays", "Marlins",
                  "Blue Jays", "Guardians", "Royals", "Angels", "Rockies", "Athletics"]
-
     nba_teams = ["Hawks", "Knicks", "Raptors", "Cavaliers", "Timberwolves", "Nuggets",
                  "Lakers", "Clippers", "Warriors", "Celtics", "Heat", "Magic", "Bulls",
                  "Pacers", "Bucks", "Nets", "Hornets", "Wizards", "Suns",
                  "Spurs", "Thunder", "Pelicans", "Grizzlies", "Jazz", "Blazers", "76ers"]
 
     team_lower = home_team.lower()
-
     for t in nhl_teams:
         if t.lower() in team_lower:
             return "Hockey", "NHL"
-
     for t in mlb_teams:
         if t.lower() in team_lower:
             return "Baseball", "MLB"
-
     for t in nba_teams:
         if t.lower() in team_lower:
             return "Basketball", "NBA"
@@ -73,7 +102,6 @@ def detect_sport(home_team):
 # ============ THE SPORTS DB - EUROPEAN FOOTBALL ============
 def get_sportsdb_matches():
     matches = []
-
     football_leagues = {
         "4328": "Premier League",
         "4335": "La Liga",
@@ -89,31 +117,37 @@ def get_sportsdb_matches():
             if response.status_code == 200:
                 data = response.json()
                 if data.get("events"):
-                    for event in data["events"][:4]:
+                    for event in data["events"][:6]:
                         home_team = event.get("strHomeTeam", "")
                         away_team = event.get("strAwayTeam", "")
+                        
+                        if not home_team or not away_team:
+                            continue
+                        
+                        # Only include if at least one team is a top team
+                        if not (is_top_team(home_team) or is_top_team(away_team)):
+                            continue
+                        
+                        commence = event.get("strTimestamp", "")
+                        if commence:
+                            try:
+                                dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
+                                now = datetime.now(dt.tzinfo)
+                                hours_diff = (dt - now).total_seconds() / 3600
+                                if hours_diff < 0 or hours_diff > 72:
+                                    continue
+                            except:
+                                pass
 
-                        if home_team and away_team and home_team != "Unknown":
-                            commence = event.get("strTimestamp", "")
-                            if commence:
-                                try:
-                                    dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
-                                    now = datetime.now(dt.tzinfo)
-                                    hours_diff = (dt - now).total_seconds() / 3600
-                                    if hours_diff < 0 or hours_diff > 48:
-                                        continue
-                                except:
-                                    pass
-
-                            matches.append({
-                                "id": f"sd_{event.get('idEvent')}",
-                                "team1": home_team,
-                                "team2": away_team,
-                                "begin_at": commence,
-                                "league": league_name,
-                                "game": "Football",
-                                "odds": {}
-                            })
+                        matches.append({
+                            "id": f"sd_{event.get('idEvent')}",
+                            "team1": home_team,
+                            "team2": away_team,
+                            "begin_at": commence,
+                            "league": league_name,
+                            "game": "Football",
+                            "odds": {}
+                        })
         except Exception as e:
             print(f"TheSportsDB {league_name} error: {e}")
 
@@ -125,20 +159,17 @@ def get_betstack_matches():
     matches = []
     headers = {"X-API-Key": BETSTACK_API_KEY}
 
-    # Try NBA
     for league_slug in ["american_basketball_nba", "basketball_nba"]:
         try:
-            url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=15"
+            url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=10"
             response = requests.get(url, headers=headers, timeout=15)
 
             if response.status_code == 200:
                 data = response.json()
                 events = data if isinstance(data, list) else data.get("data", [])
-
                 for event in events:
                     home = get_team_name(event.get("home_team"))
                     away = get_team_name(event.get("away_team"))
-
                     if not home or not away:
                         continue
 
@@ -184,7 +215,6 @@ def make_prediction(match):
 
     home_ml = odds.get("home_ml")
     away_ml = odds.get("away_ml")
-
     if home_ml and away_ml:
         try:
             home_val = int(home_ml)
@@ -222,14 +252,12 @@ def check_results():
     headers = {"X-API-Key": BETSTACK_API_KEY}
 
     for match_id, info in list(sent.items()):
-        # Skip TheSportsDB matches for results (no live scores)
         if str(match_id).startswith("sd_"):
             continue
 
         try:
             url = f"https://api.betstack.dev/api/v1/events/{match_id}"
             response = requests.get(url, headers=headers, timeout=15)
-
             if response.status_code == 200:
                 event = response.json()
                 if isinstance(event, dict):
@@ -261,7 +289,6 @@ def check_results():
                             "won": prediction_won,
                             "emoji": result_emoji
                         })
-
                         del sent[match_id]
 
         except Exception as e:
@@ -273,13 +300,13 @@ def check_results():
 
 # ============ MAIN ============
 def send_predictions():
-    # Get European football from TheSportsDB
+    # Get European football from TheSportsDB (filtered to top teams)
     football_matches = get_sportsdb_matches()
 
     # Get US sports from BetStack
     us_matches = get_betstack_matches()
 
-    # Combine
+    # Combine - football first, then US sports
     matches = football_matches + us_matches
 
     if not matches:
@@ -357,6 +384,7 @@ def send_results():
             "Hockey": "🏒",
             "Baseball": "⚾",
         }.get(r["game"], "🏆")
+
 
         message += f"{game_emoji} {r['team1']} vs {r['team2']}\n"
         message += f"Score: {r['score']} {r['emoji']}\n"
