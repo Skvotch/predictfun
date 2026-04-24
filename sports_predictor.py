@@ -27,54 +27,59 @@ def send_message(text):
 
 # ============ BETSTACK API ============
 def get_team_name(team):
-    """Extract team name from string or dict"""
     if isinstance(team, dict):
         return team.get("name", "")
     return str(team) if team else ""
 
 
 def detect_sport(home_team, away_team):
-    """Detect sport based on team names"""
+    """Detect sport based on team names - comprehensive list"""
     # NHL teams
     nhl_teams = ["Bruins", "Sabres", "Senators", "Hurricanes", "Kings", "Avalanche", 
                  "Rangers", "Islanders", "Devils", "Penguins", "Flyers", "Capitals",
                  "Blackhawks", "Red Wings", "Predators", "Stars", "Flames", "Oilers",
                  "Canucks", "Golden Knights", "Panthers", "Lightning", "Blue Jackets",
-                 "Maple Leafs", "Coyotes", "Blues", "Wild", "Ducks", "Sharks", "Kraken"]
+                 "Maple Leafs", "Coyotes", "Blues", "Wild", "Ducks", "Sharks", "Kraken",
+                 "Canadiens", "Montreal"]
     
     # MLB teams
     mlb_teams = ["Mets", "Twins", "Pirates", "Reds", "Tigers", "Orioles", "Red Sox",
                  "Yankees", "Dodgers", "Giants", "Cubs", "White Sox", "Astros", "Mariners",
-                 "Phillies", "Braves", "Cardinals", "Padres", "Brewers", "Rays", "Marlins"]
+                 "Phillies", "Braves", "Cardinals", "Padres", "Brewers", "Rays", "Marlins",
+                 "Blue Jays", "Guardians", "Royals", "Angels", "Rockies", "Athletics", 
+                 "Rangers", "Diamondbacks", "Nationals", "Marlins", "Padres", "Saints"]
     
     # NBA teams
     nba_teams = ["Hawks", "Knicks", "Raptors", "Cavaliers", "Timberwolves", "Nuggets",
                  "Lakers", "Clippers", "Warriors", "Celtics", "Heat", "Magic", "Bulls",
-                 "Pacers", "Bucks", "Nets", "Hornets", "Wizards", "Celtics", "Suns",
-                 "Spurs", "Thunder", "Pelicans", "Grizzlies", "Jazz", "Blazers"]
+                 "Pacers", "Bucks", "Nets", "Hornets", "Wizards", "Suns",
+                 "Spurs", "Thunder", "Pelicans", "Grizzlies", "Jazz", "Blazers", "76ers"]
     
     team = home_team
+    team_lower = team.lower()
     
+    # Check NHL first (most specific)
     for t in nhl_teams:
-        if t.lower() in team.lower():
+        if t.lower() in team_lower:
             return "Hockey", "NHL"
     
+    # Check MLB
     for t in mlb_teams:
-        if t.lower() in team.lower():
+        if t.lower() in team_lower:
             return "Baseball", "MLB"
     
+    # Check NBA
     for t in nba_teams:
-        if t.lower() in team.lower():
+        if t.lower() in team_lower:
             return "Basketball", "NBA"
     
-    return "Basketball", "NBA"  # Default
+    return "Basketball", "NBA"
 
 
 def get_betstack_matches():
     matches = []
     headers = {"X-API-Key": BETSTACK_API_KEY}
     
-    # Try NBA first
     for league_slug in ["american_basketball_nba", "basketball_nba", "nba"]:
         try:
             url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=30"
@@ -91,10 +96,8 @@ def get_betstack_matches():
                     if not home or not away:
                         continue
                     
-                    # Detect sport
                     game_type, league = detect_sport(home, away)
                     
-                    # Filter by date
                     commence = event.get("commence_time") or event.get("start_time") or ""
                     if commence:
                         try:
@@ -106,7 +109,6 @@ def get_betstack_matches():
                         except:
                             pass
                     
-                    # Get odds
                     lines = event.get("lines", [])
                     odds = {}
                     for line in lines:
