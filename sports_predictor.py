@@ -1,7 +1,7 @@
 import requests
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 BOT_TOKEN = "8681554780:AAE8mKCm16HMqfdaLI-sKRxs3AAyx_gUQkU"
 CHAT_ID = "1624738454"
@@ -34,9 +34,8 @@ def get_team_name(team):
     return str(team) if team else ""
 
 
-def detect_sport(home_team, away_team):
-    """Detect sport based on team names"""
-    # NHL teams
+def detect_sport(home_team):
+    """Detect sport based on team name"""
     nhl_teams = ["Bruins", "Sabres", "Senators", "Hurricanes", "Kings", "Avalanche",
                  "Rangers", "Islanders", "Devils", "Penguins", "Flyers", "Capitals",
                  "Blackhawks", "Red Wings", "Predators", "Stars", "Flames", "Oilers",
@@ -44,20 +43,17 @@ def detect_sport(home_team, away_team):
                  "Maple Leafs", "Coyotes", "Blues", "Wild", "Ducks", "Sharks", "Kraken",
                  "Canadiens", "Montreal"]
 
-    # MLB teams
     mlb_teams = ["Mets", "Twins", "Pirates", "Reds", "Tigers", "Orioles", "Red Sox",
                  "Yankees", "Dodgers", "Giants", "Cubs", "White Sox", "Astros", "Mariners",
                  "Phillies", "Braves", "Cardinals", "Padres", "Brewers", "Rays", "Marlins",
                  "Blue Jays", "Guardians", "Royals", "Angels", "Rockies", "Athletics"]
 
-    # NBA teams
     nba_teams = ["Hawks", "Knicks", "Raptors", "Cavaliers", "Timberwolves", "Nuggets",
                  "Lakers", "Clippers", "Warriors", "Celtics", "Heat", "Magic", "Bulls",
                  "Pacers", "Bucks", "Nets", "Hornets", "Wizards", "Suns",
                  "Spurs", "Thunder", "Pelicans", "Grizzlies", "Jazz", "Blazers", "76ers"]
 
-    team = home_team
-    team_lower = team.lower()
+    team_lower = home_team.lower()
 
     for t in nhl_teams:
         if t.lower() in team_lower:
@@ -74,75 +70,65 @@ def detect_sport(home_team, away_team):
     return "Football", "Soccer"
 
 
-# ============ BETSTACK API ============
+# ============ THE SPORTS DB - EUROPEAN FOOTBALL ============
+def get_sportsdb_matches():
+    matches = []
+
+    football_leagues = {
+        "4328": "Premier League",
+        "4335": "La Liga",
+        "4562": "Serie A",
+        "4481": "Bundesliga",
+        "4554": "Ligue 1"
+    }
+
+    for league_id, league_name in football_leagues.items():
+        try:
+            url = f"https://www.thesportsdb.com/api/v1/json/3/eventsnextleague.php?id={league_id}"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("events"):
+                    for event in data["events"][:4]:
+                        home_team = event.get("strHomeTeam", "")
+                        away_team = event.get("strAwayTeam", "")
+
+                        if home_team and away_team and home_team != "Unknown":
+                            commence = event.get("strTimestamp", "")
+                            if commence:
+                                try:
+                                    dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
+                                    now = datetime.now(dt.tzinfo)
+                                    hours_diff = (dt - now).total_seconds() / 3600
+                                    if hours_diff < 0 or hours_diff > 48:
+                                        continue
+                                except:
+                                    pass
+
+                            matches.append({
+                                "id": f"sd_{event.get('idEvent')}",
+                                "team1": home_team,
+                                "team2": away_team,
+                                "begin_at": commence,
+                                "league": league_name,
+                                "game": "Football",
+                                "odds": {}
+                            })
+        except Exception as e:
+            print(f"TheSportsDB {league_name} error: {e}")
+
+    return matches
+
+
+# ============ BETSTACK API - US SPORTS ============
 def get_betstack_matches():
     matches = []
     headers = {"X-API-Key": BETSTACK_API_KEY}
 
-    # European Football - Top 5 Leagues
-    football_leagues = [
-        ("soccer_epl", "Premier League"),
-        ("soccer_la_liga", "La Liga"),
-        ("soccer_serie_a", "Serie A"),
-        ("soccer_bundesliga", "Bundesliga"),
-        ("soccer_ligue_1", "Ligue 1"),
-    ]
-
-    for league_slug, league_name in football_leagues:
-        try:
-            url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=10"
-            response = requests.get(url, headers=headers, timeout=15)
-
-            if response.status_code == 200:
-                data = response.json()
-                events = data if isinstance(data, list) else data.get("data", [])
-
-                for event in events:
-                    home = get_team_name(event.get("home_team"))
-                    away = get_team_name(event.get("away_team"))
-
-                    if not home or not away:
-                        continue
-
-                    game_type, league = detect_sport(home, away)
-                    # Force Football for these leagues
-                    game_type = "Football"
-                    league = league_name
-
-                    commence = event.get("commence_time") or event.get("start_time") or ""
-                    if commence:
-                        try:
-                            dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
-                            now = datetime.now(dt.tzinfo)
-                            hours_diff = (dt - now).total_seconds() / 3600
-                            if hours_diff < 0 or hours_diff > 48:
-                                continue
-                        except:
-                            pass
-
-                    lines = event.get("lines", [])
-                    odds = {}
-                    for line in lines:
-                        if line.get("type") == "moneyline":
-                            odds["home_ml"] = line.get("home_price")
-                            odds["away_ml"] = line.get("away_price")
-
-                    matches.append({
-                        "id": str(event.get("id")),
-                        "team1": home,
-                        "team2": away,
-                        "begin_at": commence,
-                        "league": league_name,
-                        "game": "Football",
-                        "odds": odds
-                    })
-        except Exception as e:
-            print(f"{league_slug} error: {e}")
-
-    # Also get US sports
+    # Try NBA
     for league_slug in ["american_basketball_nba", "basketball_nba"]:
         try:
-            url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=10"
+            url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=15"
             response = requests.get(url, headers=headers, timeout=15)
 
             if response.status_code == 200:
@@ -156,7 +142,7 @@ def get_betstack_matches():
                     if not home or not away:
                         continue
 
-                    game_type, league = detect_sport(home, away)
+                    game_type, league = detect_sport(home)
 
                     commence = event.get("commence_time") or event.get("start_time") or ""
                     if commence:
@@ -186,7 +172,7 @@ def get_betstack_matches():
                         "odds": odds
                     })
         except Exception as e:
-            print(f"{league_slug} error: {e}")
+            print(f"BetStack NBA error: {e}")
 
     return matches
 
@@ -236,6 +222,10 @@ def check_results():
     headers = {"X-API-Key": BETSTACK_API_KEY}
 
     for match_id, info in list(sent.items()):
+        # Skip TheSportsDB matches for results (no live scores)
+        if str(match_id).startswith("sd_"):
+            continue
+
         try:
             url = f"https://api.betstack.dev/api/v1/events/{match_id}"
             response = requests.get(url, headers=headers, timeout=15)
@@ -283,7 +273,14 @@ def check_results():
 
 # ============ MAIN ============
 def send_predictions():
-    matches = get_betstack_matches()
+    # Get European football from TheSportsDB
+    football_matches = get_sportsdb_matches()
+
+    # Get US sports from BetStack
+    us_matches = get_betstack_matches()
+
+    # Combine
+    matches = football_matches + us_matches
 
     if not matches:
         send_message("🎯 No upcoming matches in 48h. Try again later.")
@@ -291,7 +288,7 @@ def send_predictions():
 
     sent = load_sent_predictions()
 
-    message = "🎯 <b>Predictions (BetStack)</b>\n\n"
+    message = "🎯 <b>Predictions</b>\n\n"
     count = 0
 
     for match in matches[:12]:
@@ -375,6 +372,6 @@ def send_results():
 
 
 if __name__ == "__main__":
-    send_message("🎯 Sports Predictions (BetStack)")
+    send_message("🎯 Sports Predictions")
     send_predictions()
     send_results()
