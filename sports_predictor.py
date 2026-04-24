@@ -26,23 +26,58 @@ def send_message(text):
 
 
 # ============ BETSTACK API ============
+def get_team_name(team):
+    """Extract team name from string or dict"""
+    if isinstance(team, dict):
+        return team.get("name", "")
+    return str(team) if team else ""
+
+
+def detect_sport(home_team, away_team):
+    """Detect sport based on team names"""
+    # NHL teams
+    nhl_teams = ["Bruins", "Sabres", "Senators", "Hurricanes", "Kings", "Avalanche", 
+                 "Rangers", "Islanders", "Devils", "Penguins", "Flyers", "Capitals",
+                 "Blackhawks", "Red Wings", "Predators", "Stars", "Flames", "Oilers",
+                 "Canucks", "Golden Knights", "Panthers", "Lightning", "Blue Jackets",
+                 "Maple Leafs", "Coyotes", "Blues", "Wild", "Ducks", "Sharks", "Kraken"]
+    
+    # MLB teams
+    mlb_teams = ["Mets", "Twins", "Pirates", "Reds", "Tigers", "Orioles", "Red Sox",
+                 "Yankees", "Dodgers", "Giants", "Cubs", "White Sox", "Astros", "Mariners",
+                 "Phillies", "Braves", "Cardinals", "Padres", "Brewers", "Rays", "Marlins"]
+    
+    # NBA teams
+    nba_teams = ["Hawks", "Knicks", "Raptors", "Cavaliers", "Timberwolves", "Nuggets",
+                 "Lakers", "Clippers", "Warriors", "Celtics", "Heat", "Magic", "Bulls",
+                 "Pacers", "Bucks", "Nets", "Hornets", "Wizards", "Celtics", "Suns",
+                 "Spurs", "Thunder", "Pelicans", "Grizzlies", "Jazz", "Blazers"]
+    
+    team = home_team
+    
+    for t in nhl_teams:
+        if t.lower() in team.lower():
+            return "Hockey", "NHL"
+    
+    for t in mlb_teams:
+        if t.lower() in team.lower():
+            return "Baseball", "MLB"
+    
+    for t in nba_teams:
+        if t.lower() in team.lower():
+            return "Basketball", "NBA"
+    
+    return "Basketball", "NBA"  # Default
+
+
 def get_betstack_matches():
     matches = []
     headers = {"X-API-Key": BETSTACK_API_KEY}
     
-    # Try different league formats
-    league_tests = [
-        ("american_basketball_nba", "NBA", "Basketball"),
-        ("basketball_nba", "NBA", "Basketball"),
-        ("nba", "NBA", "Basketball"),
-        ("ice_hockey_nhl", "NHL", "Hockey"),
-        ("hockey_nhl", "NHL", "Hockey"),
-        ("nhl", "NHL", "Hockey"),
-    ]
-    
-    for league_slug, league_name, game_type in league_tests:
+    # Try NBA first
+    for league_slug in ["american_basketball_nba", "basketball_nba", "nba"]:
         try:
-            url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=20"
+            url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=30"
             response = requests.get(url, headers=headers, timeout=15)
             
             if response.status_code == 200:
@@ -50,40 +85,28 @@ def get_betstack_matches():
                 events = data if isinstance(data, list) else data.get("data", [])
                 
                 for event in events:
-                    # Extract team names properly
-                    home = event.get("home_team")
-                    away = event.get("away_team")
+                    home = get_team_name(event.get("home_team"))
+                    away = get_team_name(event.get("away_team"))
                     
-                    # Handle both string and dict formats
-                    if isinstance(home, dict):
-                        home_name = home.get("name", "")
-                    else:
-                        home_name = str(home) if home else ""
-                        
-                    if isinstance(away, dict):
-                        away_name = away.get("name", "")
-                    else:
-                        away_name = str(away) if away else ""
-                    
-                    if not home_name or not away_name:
+                    if not home or not away:
                         continue
                     
-                    # Get commence_time
-                    commence = event.get("commence_time") or event.get("start_time") or ""
+                    # Detect sport
+                    game_type, league = detect_sport(home, away)
                     
-                    # Parse date and filter to next 48 hours
+                    # Filter by date
+                    commence = event.get("commence_time") or event.get("start_time") or ""
                     if commence:
                         try:
                             dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
                             now = datetime.now(dt.tzinfo)
                             hours_diff = (dt - now).total_seconds() / 3600
-                            # Only include matches in next 48 hours
                             if hours_diff < 0 or hours_diff > 48:
                                 continue
                         except:
                             pass
                     
-                    # Get odds from lines
+                    # Get odds
                     lines = event.get("lines", [])
                     odds = {}
                     for line in lines:
@@ -93,10 +116,10 @@ def get_betstack_matches():
                     
                     matches.append({
                         "id": str(event.get("id")),
-                        "team1": home_name,
-                        "team2": away_name,
+                        "team1": home,
+                        "team2": away,
                         "begin_at": commence,
-                        "league": league_name,
+                        "league": league,
                         "game": game_type,
                         "odds": odds
                     })
@@ -219,9 +242,10 @@ def send_predictions():
         prediction = make_prediction(match)
         
         game_emoji = {
-            "Football": "⚽",
+            "Basketball": "🏀",
             "Hockey": "🏒",
-            "Basketball": "🏀"
+            "Baseball": "⚾",
+            "Football": "⚽"
         }.get(match["game"], "🏆")
         
         begin_time = match["begin_at"]
@@ -270,9 +294,10 @@ def send_results():
     
     for r in results:
         game_emoji = {
-            "Football": "⚽",
+            "Basketball": "🏀",
             "Hockey": "🏒",
-            "Basketball": "🏀"
+            "Baseball": "⚾",
+            "Football": "⚽"
         }.get(r["game"], "🏆")
         
         message += f"{game_emoji} {r['team1']} vs {r['team2']}\n"
