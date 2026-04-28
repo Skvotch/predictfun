@@ -62,15 +62,55 @@ def detect_sport(home_team):
     return "Football", "Soccer"
 
 
-# ============ THE SPORTS DB - FOOTBALL ============
+# ============ TOP EUROPEAN TEAMS ============
+def is_top_team(team_name):
+    """Check if team is from top 5 leagues"""
+    top_teams = [
+        # Premier League
+        "Arsenal", "Aston Villa", "Brentford", "Brighton", "Burnley",
+        "Chelsea", "Crystal Palace", "Everton", "Fulham", "Liverpool",
+        "Manchester City", "Manchester United", "Newcastle", "Tottenham",
+        "West Ham", "Wolves", "Nottingham Forest", "Leicester", "Leeds", "Southampton",
+        # La Liga
+        "Barcelona", "Real Madrid", "Atletico Madrid", "Real Sociedad",
+        "Villarreal", "Sevilla", "Athletic Bilbao", "Real Betis", "Valencia",
+        "Celta Vigo", "Girona", "Alaves", "Osasuna", "Mallorca", "Granada",
+        # Serie A
+        "Inter", "Milan", "Juventus", "Napoli", "Roma", "Lazio",
+        "Atalanta", "Fiorentina", "Torino", "Bologna", "Monza",
+        "Udinese", "Sassuolo", "Lecce", "Salernitana", "Empoli",
+        # Bundesliga
+        "Bayern Munich", "Dortmund", "Leverkusen", "Leipzig", "Stuttgart",
+        "Frankfurt", "Wolfsburg", "Hoffenheim", "Mönchengladbach",
+        "Union Berlin", "Freiburg", "Augsburg", "Bochum", "Köln",
+        # Ligue 1
+        "PSG", "Monaco", "Lille", "Marseille", "Lyon", "Nice",
+        "Rennes", "Lens", "Strasbourg", "Toulouse", "Nantes",
+        "Brest", "Montpellier", "Reims", "Metz", "Clermont", "Auxerre",
+        # Champions League
+        "Real Madrid", "Barcelona", "Bayern", "Manchester City", "Liverpool",
+        "PSG", "Inter", "Milan", "Juventus", "Chelsea", "Arsenal", "Dortmund",
+        "Atletico", "Napoli", "Roma", "Leipzig", "Leverkusen"
+    ]
+    team_lower = team_name.lower()
+    for t in top_teams:
+        if t.lower() in team_lower:
+            return True
+    return False
+
+
+# ============ THE SPORTS DB - CORRECT LEAGUES ============
 def get_football_matches():
     matches = []
+    
+    # Correct league IDs for top competitions
     football_leagues = {
-        "4328": "Premier League",
-        "4335": "La Liga",
-        "4562": "Serie A",
-        "4481": "Bundesliga",
-        "4554": "Ligue 1"
+        "4480": "Champions League",  # Champions League
+        "4328": "Premier League",    # Premier League
+        "4335": "La Liga",          # La Liga
+        "4562": "Serie A",          # Serie A
+        "4481": "Bundesliga",       # Bundesliga
+        "4554": "Ligue 1"          # Ligue 1
     }
 
     for league_id, league_name in football_leagues.items():
@@ -80,12 +120,17 @@ def get_football_matches():
             if response.status_code == 200:
                 data = response.json()
                 if data.get("events"):
-                    for event in data["events"][:4]:
+                    for event in data["events"][:3]:
                         home_team = event.get("strHomeTeam", "")
                         away_team = event.get("strAwayTeam", "")
                         
                         if not home_team or not away_team:
                             continue
+                        
+                        # Skip if not top team (except Champions League)
+                        if league_name != "Champions League":
+                            if not is_top_team(home_team) and not is_top_team(away_team):
+                                continue
                         
                         commence = event.get("strTimestamp", "")
                         if commence:
@@ -261,7 +306,6 @@ def check_results():
                     data = response.json()
                     event = data.get("events", [{}])[0] if data.get("events") else {}
                     
-                    # Check if match is finished
                     str_progress = event.get("strProgress", "")
                     if str_progress and "FT" in str_progress:
                         int_home_score = event.get("intHomeScore")
