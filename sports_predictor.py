@@ -36,17 +36,24 @@ def get_team_name(team):
 
 
 def detect_sport(home_team):
+    """Detect sport based on team name"""
     nhl_teams = ["Bruins", "Sabres", "Senators", "Hurricanes", "Kings", "Avalanche",
                  "Rangers", "Islanders", "Devils", "Penguins", "Flyers", "Capitals",
                  "Blackhawks", "Red Wings", "Predators", "Stars", "Flames", "Oilers",
                  "Canucks", "Golden Knights", "Panthers", "Lightning", "Blue Jackets",
                  "Maple Leafs", "Coyotes", "Blues", "Wild", "Ducks", "Sharks", "Kraken"]
+    
     mlb_teams = ["Mets", "Twins", "Pirates", "Reds", "Tigers", "Orioles", "Red Sox",
                  "Yankees", "Dodgers", "Giants", "Cubs", "White Sox", "Astros", "Mariners",
-                 "Phillies", "Braves", "Cardinals", "Padres", "Brewers", "Rays", "Marlins"]
+                 "Phillies", "Braves", "Cardinals", "Padres", "Brewers", "Rays", "Marlins",
+                 "Guardians", "Royals", "Athletics", "Angels", "Rockies", "Diamondbacks",
+                 "Blue Jays", "Brewers", "Nationals"]
+    
     nba_teams = ["Hawks", "Knicks", "Raptors", "Cavaliers", "Timberwolves", "Nuggets",
                  "Lakers", "Clippers", "Warriors", "Celtics", "Heat", "Magic", "Bulls",
-                 "Pacers", "Bucks", "Nets", "Hornets", "Wizards", "Suns", "Spurs", "Thunder"]
+                 "Pacers", "Bucks", "Nets", "Hornets", "Wizards", "Suns", "Spurs", "Thunder",
+                 "Pelicans", "Grizzlies", "Jazz", "Blazers", "76ers", "Mavericks", "Rockets",
+                 "Kings", "Pistons", "Wizards"]
 
     team_lower = home_team.lower()
     for t in nhl_teams:
@@ -64,17 +71,19 @@ def detect_sport(home_team):
 
 # ============ TOP EUROPEAN TEAMS ============
 def is_top_team(team_name):
-    """Check if team is from top 5 leagues"""
+    """Check if team is from top 5 leagues or European competitions"""
     top_teams = [
         # Premier League
         "Arsenal", "Aston Villa", "Brentford", "Brighton", "Burnley",
         "Chelsea", "Crystal Palace", "Everton", "Fulham", "Liverpool",
         "Manchester City", "Manchester United", "Newcastle", "Tottenham",
         "West Ham", "Wolves", "Nottingham Forest", "Leicester", "Leeds", "Southampton",
+        "Bournemouth", "Crystal Palace", "Aston", "Villa", "United", "City", "Liverpool", "Chelsea", "Arsenal", "Spurs", "Newcastle",
         # La Liga
         "Barcelona", "Real Madrid", "Atletico Madrid", "Real Sociedad",
         "Villarreal", "Sevilla", "Athletic Bilbao", "Real Betis", "Valencia",
         "Celta Vigo", "Girona", "Alaves", "Osasuna", "Mallorca", "Granada",
+        "Athletic", "Betis", "Sociedad",
         # Serie A
         "Inter", "Milan", "Juventus", "Napoli", "Roma", "Lazio",
         "Atalanta", "Fiorentina", "Torino", "Bologna", "Monza",
@@ -83,14 +92,26 @@ def is_top_team(team_name):
         "Bayern Munich", "Dortmund", "Leverkusen", "Leipzig", "Stuttgart",
         "Frankfurt", "Wolfsburg", "Hoffenheim", "Mönchengladbach",
         "Union Berlin", "Freiburg", "Augsburg", "Bochum", "Köln",
+        "Bayern", "Dortmund", "Leverkusen", "Leipzig",
         # Ligue 1
         "PSG", "Monaco", "Lille", "Marseille", "Lyon", "Nice",
         "Rennes", "Lens", "Strasbourg", "Toulouse", "Nantes",
         "Brest", "Montpellier", "Reims", "Metz", "Clermont", "Auxerre",
-        # Champions League
+        # Champions League teams (any)
         "Real Madrid", "Barcelona", "Bayern", "Manchester City", "Liverpool",
         "PSG", "Inter", "Milan", "Juventus", "Chelsea", "Arsenal", "Dortmund",
-        "Atletico", "Napoli", "Roma", "Leipzig", "Leverkusen"
+        "Atletico", "Napoli", "Roma", "Leipzig", "Leverkusen", "Benfica",
+        "Porto", "Ajax", "Shakhtar", "Dinamo", "Celtic", "Rangers", "Galatasaray",
+        "Fenerbahce", "Besiktas", "Trabzonspor", "CSKA", "Zenit", "Lokomotiv",
+        "Brugge", "Gent", "Anderlecht", "Red Star", "Partizan", "Olympiacos",
+        "AEK", "PAOK", "Maccabi", "Red Bull", "Salzburg", "Leipzig",
+        # Europa League teams
+        "Roma", "Sevilla", "Leverkusen", "Manchester United", "Juventus",
+        "Shakhtar", "Ajax", "Sporting", "Porto", "Benfica", "Lyon",
+        "Real Betis", "Real Sociedad", "Freiburg", "Frankfurt", "Monaco",
+        # Conference League teams
+        "West Ham", "Fiorentina", "Basel", "AZ", "Gent", "Lille",
+        "Anderlecht", "Villarreal", "Tottenham", "Chelsea"
     ]
     team_lower = team_name.lower()
     for t in top_teams:
@@ -103,14 +124,16 @@ def is_top_team(team_name):
 def get_football_matches():
     matches = []
     
-    # Correct league IDs for top competitions
+    # Correct league IDs for European competitions
     football_leagues = {
-        "4480": "Champions League",  # Champions League
-        "4328": "Premier League",    # Premier League
-        "4335": "La Liga",          # La Liga
-        "4562": "Serie A",          # Serie A
-        "4481": "Bundesliga",       # Bundesliga
-        "4554": "Ligue 1"          # Ligue 1
+        "4480": "Champions League",
+        "4485": "Europa League",
+        "10216": "Conference League",
+        "4328": "Premier League",
+        "4335": "La Liga",
+        "4562": "Serie A",
+        "4481": "Bundesliga",
+        "4554": "Ligue 1"
     }
 
     for league_id, league_name in football_leagues.items():
@@ -127,8 +150,8 @@ def get_football_matches():
                         if not home_team or not away_team:
                             continue
                         
-                        # Skip if not top team (except Champions League)
-                        if league_name != "Champions League":
+                        # Skip if not top team (except European competitions)
+                        if league_name not in ["Champions League", "Europa League", "Conference League"]:
                             if not is_top_team(home_team) and not is_top_team(away_team):
                                 continue
                         
