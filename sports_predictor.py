@@ -71,7 +71,7 @@ def detect_sport(home_team):
 
 # ============ TOP EUROPEAN TEAMS ============
 def is_top_team(team_name):
-    """Check if team is from top 5 leagues or European competitions"""
+    """Check if team is from top 5 leagues"""
     top_teams = [
         # Premier League
         "Arsenal", "Aston Villa", "Brentford", "Brighton", "Burnley",
@@ -96,22 +96,7 @@ def is_top_team(team_name):
         # Ligue 1
         "PSG", "Monaco", "Lille", "Marseille", "Lyon", "Nice",
         "Rennes", "Lens", "Strasbourg", "Toulouse", "Nantes",
-        "Brest", "Montpellier", "Reims", "Metz", "Clermont", "Auxerre",
-        # Champions League teams (any)
-        "Real Madrid", "Barcelona", "Bayern", "Manchester City", "Liverpool",
-        "PSG", "Inter", "Milan", "Juventus", "Chelsea", "Arsenal", "Dortmund",
-        "Atletico", "Napoli", "Roma", "Leipzig", "Leverkusen", "Benfica",
-        "Porto", "Ajax", "Shakhtar", "Dinamo", "Celtic", "Rangers", "Galatasaray",
-        "Fenerbahce", "Besiktas", "Trabzonspor", "CSKA", "Zenit", "Lokomotiv",
-        "Brugge", "Gent", "Anderlecht", "Red Star", "Partizan", "Olympiacos",
-        "AEK", "PAOK", "Maccabi", "Red Bull", "Salzburg", "Leipzig",
-        # Europa League teams
-        "Roma", "Sevilla", "Leverkusen", "Manchester United", "Juventus",
-        "Shakhtar", "Ajax", "Sporting", "Porto", "Benfica", "Lyon",
-        "Real Betis", "Real Sociedad", "Freiburg", "Frankfurt", "Monaco",
-        # Conference League teams
-        "West Ham", "Fiorentina", "Basel", "AZ", "Gent", "Lille",
-        "Anderlecht", "Villarreal", "Tottenham", "Chelsea"
+        "Brest", "Montpellier", "Reims", "Metz", "Clermont", "Auxerre"
     ]
     team_lower = team_name.lower()
     for t in top_teams:
@@ -120,15 +105,12 @@ def is_top_team(team_name):
     return False
 
 
-# ============ THE SPORTS DB - CORRECT LEAGUES ============
+# ============ THE SPORTS DB - TOP 5 LEAGUES ============
 def get_football_matches():
     matches = []
     
-    # Correct league IDs for European competitions
+    # Top 5 European leagues only
     football_leagues = {
-        "4480": "Champions League",
-        "4485": "Europa League",
-        "10216": "Conference League",
         "4328": "Premier League",
         "4335": "La Liga",
         "4562": "Serie A",
@@ -150,10 +132,9 @@ def get_football_matches():
                         if not home_team or not away_team:
                             continue
                         
-                        # Skip if not top team (except European competitions)
-                        if league_name not in ["Champions League", "Europa League", "Conference League"]:
-                            if not is_top_team(home_team) and not is_top_team(away_team):
-                                continue
+                        # Only top teams
+                        if not is_top_team(home_team) and not is_top_team(away_team):
+                            continue
                         
                         commence = event.get("strTimestamp", "")
                         if commence:
@@ -186,6 +167,7 @@ def get_betstack_matches():
     matches = []
     headers = {"X-API-Key": BETSTACK_API_KEY}
 
+    # NBA
     for league_slug in ["american_basketball_nba", "basketball_nba"]:
         try:
             url = f"https://api.betstack.dev/api/v1/events?league={league_slug}&per_page=10"
