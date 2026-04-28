@@ -27,40 +27,6 @@ def send_message(text):
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 
-# ============ TOP EUROPEAN TEAMS ============
-def is_top_team(team_name):
-    """Check if team is from top 5 leagues"""
-    top_teams = [
-        # Premier League
-        "Arsenal", "Aston Villa", "Brentford", "Brighton", "Burnley",
-        "Chelsea", "Crystal Palace", "Everton", "Fulham", "Liverpool",
-        "Manchester City", "Manchester United", "Newcastle", "Tottenham",
-        "West Ham", "Wolves", "Nottingham Forest", "Luton", "Sheffield United",
-        "Leicester", "Leeds", "Southampton", "West Brom", "Norwich",
-        # La Liga
-        "Barcelona", "Real Madrid", "Atletico Madrid", "Real Sociedad",
-        "Villarreal", "Sevilla", "Athletic Bilbao", "Real Betis", "Valencia",
-        "Celta Vigo", "Girona", "Alaves", "Osasuna", "Mallorca", "Granada",
-        # Serie A
-        "Inter", "Milan", "Juventus", "Napoli", "Roma", "Lazio",
-        "Atalanta", "Fiorentina", "Torino", "Bologna", "Monza",
-        "Udinese", "Sassuolo", "Lecce", "Salernitana", "Empoli",
-        # Bundesliga
-        "Bayern Munich", "Dortmund", "Leverkusen", "Leipzig", "Stuttgart",
-        "Frankfurt", "Wolfsburg", "Hoffenheim", "Mönchengladbach",
-        "Union Berlin", "Freiburg", "Augsburg", "Bochum", "Köln",
-        # Ligue 1
-        "PSG", "Monaco", "Lille", "Marseille", "Lyon", "Nice",
-        "Rennes", "Lens", "Strasbourg", "Toulouse", "Nantes",
-        "Brest", "Montpellier", "Reims", "Metz", "Clermont", "Auxerre"
-    ]
-    team_lower = team_name.lower()
-    for t in top_teams:
-        if t.lower() in team_lower:
-            return True
-    return False
-
-
 # ============ TEAM DETECTION ============
 def get_team_name(team):
     if isinstance(team, dict):
@@ -68,18 +34,15 @@ def get_team_name(team):
     return str(team) if team else ""
 
 
-
 def detect_sport(home_team):
     nhl_teams = ["Bruins", "Sabres", "Senators", "Hurricanes", "Kings", "Avalanche",
                  "Rangers", "Islanders", "Devils", "Penguins", "Flyers", "Capitals",
                  "Blackhawks", "Red Wings", "Predators", "Stars", "Flames", "Oilers",
                  "Canucks", "Golden Knights", "Panthers", "Lightning", "Blue Jackets",
-                 "Maple Leafs", "Coyotes", "Blues", "Wild", "Ducks", "Sharks", "Kraken",
-                 "Canadiens", "Montreal"]
+                 "Maple Leafs", "Coyotes", "Blues", "Wild", "Ducks", "Sharks", "Kraken"]
     mlb_teams = ["Mets", "Twins", "Pirates", "Reds", "Tigers", "Orioles", "Red Sox",
                  "Yankees", "Dodgers", "Giants", "Cubs", "White Sox", "Astros", "Mariners",
-                 "Phillies", "Braves", "Cardinals", "Padres", "Brewers", "Rays", "Marlins",
-                 "Blue Jays", "Guardians", "Royals", "Angels", "Rockies", "Athletics"]
+                 "Phillies", "Braves", "Cardinals", "Padres", "Brewers", "Rays", "Marlins"]
     nba_teams = ["Hawks", "Knicks", "Raptors", "Cavaliers", "Timberwolves", "Nuggets",
                  "Lakers", "Clippers", "Warriors", "Celtics", "Heat", "Magic", "Bulls",
                  "Pacers", "Bucks", "Nets", "Hornets", "Wizards", "Suns",
@@ -99,191 +62,60 @@ def detect_sport(home_team):
     return "Football", "Soccer"
 
 
-# ============ API-FOOTBALL (FREE TIER) ============
+# ============ FOOTBALL API ============
 def get_football_matches():
-    """Get European football matches using free API-Football"""
     matches = []
     
-    # Try API-Football free tier
-    try:
-        url = "https://api.football-data-org/v4/competitions/PL/matches?status=SCHEDULED"
-        headers = {"X-Auth-Token": "4d6a6e6f8e2d4b8a9f0c1e2d3b4a5f6e"}
-        response = requests.get(url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            for match in data.get("matches", [])[:5]:
-                home = match.get("homeTeam", {}).get("name", "")
-                away = match.get("awayTeam", {}).get("name", "")
-                
-                if home and away:
-                    commence = match.get("utcDate", "")
-                    if commence:
-                        try:
-                            dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
-                            now = datetime.now(dt.tzinfo)
-                            hours_diff = (dt - now).total_seconds() / 3600
-                            if hours_diff < 0 or hours_diff > 72:
-                                continue
-                        except:
-                            pass
-                    
-                    matches.append({
-                        "id": f"fd_{match.get('id')}",
-                        "team1": home,
-                        "team2": away,
-                        "begin_at": commence,
-                        "league": "Premier League",
-                        "game": "Football",
-                        "odds": {}
-                    })
-    except Exception as e:
-        print(f"API-Football PL error: {e}")
+    # API-Football free tier
+    headers = {"X-Auth-Token": "4d6a6e6f8e2d4b8a9f0c1e2d3b4a5f6e"}
     
-    # Try La Liga
-    try:
-        url = "https://api.football-data-org/v4/competitions/PD/matches?status=SCHEDULED"
-        response = requests.get(url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            for match in data.get("matches", [])[:4]:
-                home = match.get("homeTeam", {}).get("name", "")
-                away = match.get("awayTeam", {}).get("name", "")
-                
-                if home and away:
-                    commence = match.get("utcDate", "")
-                    if commence:
-                        try:
-                            dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
-                            now = datetime.now(dt.tzinfo)
-                            hours_diff = (dt - now).total_seconds() / 3600
-                            if hours_diff < 0 or hours_diff > 72:
-                                continue
-                        except:
-                            pass
-                    
-                    matches.append({
-                        "id": f"fd_{match.get('id')}",
-                        "team1": home,
-                        "team2": away,
-                        "begin_at": commence,
-                        "league": "La Liga",
-                        "game": "Football",
-                        "odds": {}
-                    })
-    except Exception as e:
-        print(f"API-Football PD error: {e}")
+    competitions = {
+        "PL": "Premier League",
+        "PD": "La Liga", 
+        "SA": "Serie A",
+        "BL1": "Bundesliga",
+        "FL1": "Ligue 1"
+    }
     
-    # Try Serie A
-    try:
-        url = "https://api.football-data-org/v4/competitions/SA/matches?status=SCHEDULED"
-        response = requests.get(url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            for match in data.get("matches", [])[:4]:
-                home = match.get("homeTeam", {}).get("name", "")
-                away = match.get("awayTeam", {}).get("name", "")
-                
-                if home and away:
-                    commence = match.get("utcDate", "")
-                    if commence:
-                        try:
-                            dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
-                            now = datetime.now(dt.tzinfo)
-                            hours_diff = (dt - now).total_seconds() / 3600
-                            if hours_diff < 0 or hours_diff > 72:
-                                continue
-                        except:
-                            pass
+    for comp_code, league_name in competitions.items():
+        try:
+            url = f"https://api.football-data-org/v4/competitions/{comp_code}/matches?status=SCHEDULED"
+            response = requests.get(url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                for match in data.get("matches", [])[:3]:
+                    home = match.get("homeTeam", {}).get("name", "")
+                    away = match.get("awayTeam", {}).get("name", "")
                     
-                    matches.append({
-                        "id": f"fd_{match.get('id')}",
-                        "team1": home,
-                        "team2": away,
-                        "begin_at": commence,
-                        "league": "Serie A",
-                        "game": "Football",
-                        "odds": {}
-                    })
-    except Exception as e:
-        print(f"API-Football SA error: {e}")
-    
-    # Try Bundesliga
-    try:
-        url = "https://api.football-data-org/v4/competitions/BL1/matches?status=SCHEDULED"
-        response = requests.get(url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            for match in data.get("matches", [])[:4]:
-                home = match.get("homeTeam", {}).get("name", "")
-                away = match.get("awayTeam", {}).get("name", "")
-                
-                if home and away:
-                    commence = match.get("utcDate", "")
-                    if commence:
-                        try:
-                            dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
-                            now = datetime.now(dt.tzinfo)
-                            hours_diff = (dt - now).total_seconds() / 3600
-                            if hours_diff < 0 or hours_diff > 72:
-                                continue
-                        except:
-                            pass
-                    
-                    matches.append({
-                        "id": f"fd_{match.get('id')}",
-                        "team1": home,
-                        "team2": away,
-                        "begin_at": commence,
-                        "league": "Bundesliga",
-                        "game": "Football",
-                        "odds": {}
-                    })
-    except Exception as e:
-        print(f"API-Football BL1 error: {e}")
-    
-    # Try Ligue 1
-    try:
-        url = "https://api.football-data-org/v4/competitions/FL1/matches?status=SCHEDULED"
-        response = requests.get(url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            for match in data.get("matches", [])[:4]:
-                home = match.get("homeTeam", {}).get("name", "")
-                away = match.get("awayTeam", {}).get("name", "")
-                
-                if home and away:
-                    commence = match.get("utcDate", "")
-                    if commence:
-                        try:
-                            dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
-                            now = datetime.now(dt.tzinfo)
-                            hours_diff = (dt - now).total_seconds() / 3600
-                            if hours_diff < 0 or hours_diff > 72:
-                                continue
-                        except:
-                            pass
-                    
-                    matches.append({
-                        "id": f"fd_{match.get('id')}",
-                        "team1": home,
-                        "team2": away,
-                        "begin_at": commence,
-                        "league": "Ligue 1",
-                        "game": "Football",
-                        "odds": {}
-                    })
-    except Exception as e:
-        print(f"API-Football FL1 error: {e}")
+                    if home and away:
+                        commence = match.get("utcDate", "")
+                        if commence:
+                            try:
+                                dt = datetime.fromisoformat(commence.replace("Z", "+00:00"))
+                                now = datetime.now(dt.tzinfo)
+                                hours_diff = (dt - now).total_seconds() / 3600
+                                if hours_diff < 0 or hours_diff > 72:
+                                    continue
+                            except:
+                                pass
+                        
+                        matches.append({
+                            "id": f"fd_{match.get('id')}",
+                            "team1": home,
+                            "team2": away,
+                            "begin_at": commence,
+                            "league": league_name,
+                            "game": "Football",
+                            "odds": {}
+                        })
+        except Exception as e:
+            print(f"API-Football {comp_code} error: {e}")
 
     return matches
 
 
-# ============ BETSTACK API - US SPORTS ============
+# ============ BETSTACK API ============
 def get_betstack_matches():
     matches = []
     headers = {"X-API-Key": BETSTACK_API_KEY}
@@ -362,7 +194,6 @@ def get_odds_text(match):
     odds = match.get("odds", {})
     team1 = match["team1"]
     team2 = match["team2"]
-
     home_ml = odds.get("home_ml")
     away_ml = odds.get("away_ml")
 
@@ -379,50 +210,91 @@ def check_results():
 
     results = []
     headers = {"X-API-Key": BETSTACK_API_KEY}
+    football_headers = {"X-Auth-Token": "4d6a6e6f8e2d4b8a9f0c1e2d3b4a5f6e"}
 
     for match_id, info in list(sent.items()):
-        # Skip football matches for results (no free API)
-        if str(match_id).startswith("fd_"):
-            continue
+        # Check BetStack results (NBA)
+        if not str(match_id).startswith("fd_"):
+            try:
+                url = f"https://api.betstack.dev/api/v1/events/{match_id}"
+                response = requests.get(url, headers=headers, timeout=15)
+                if response.status_code == 200:
+                    event = response.json()
+                    if isinstance(event, dict):
+                        event = event.get("data", event)
 
-        try:
-            url = f"https://api.betstack.dev/api/v1/events/{match_id}"
-            response = requests.get(url, headers=headers, timeout=15)
-            if response.status_code == 200:
-                event = response.json()
-                if isinstance(event, dict):
-                    event = event.get("data", event)
+                    result = event.get("result", {})
+                    if result.get("final"):
+                        home_score = result.get("home_score")
+                        away_score = result.get("away_score")
 
-                result = event.get("result", {})
-                if result.get("final"):
-                    home_score = result.get("home_score")
-                    away_score = result.get("away_score")
+                        if home_score is not None and away_score is not None:
+                            if home_score > away_score:
+                                winner = info["team1"]
+                            elif away_score > home_score:
+                                winner = info["team2"]
+                            else:
+                                winner = "Draw"
 
-                    if home_score is not None and away_score is not None:
-                        if home_score > away_score:
-                            winner = info["team1"]
-                        elif away_score > home_score:
-                            winner = info["team2"]
-                        else:
-                            winner = "Draw"
+                            prediction_won = winner == info["prediction"]
+                            result_emoji = "✅" if prediction_won else "❌"
 
-                        prediction_won = winner == info["prediction"]
-                        result_emoji = "✅" if prediction_won else "❌"
+                            results.append({
+                                "game": info["game"],
+                                "team1": info["team1"],
+                                "team2": info["team2"],
+                                "score": f"{home_score} - {away_score}",
+                                "winner": winner,
+                                "prediction": info["prediction"],
+                                "won": prediction_won,
+                                "emoji": result_emoji
+                            })
+                            del sent[match_id]
 
-                        results.append({
-                            "game": info["game"],
-                            "team1": info["team1"],
-                            "team2": info["team2"],
-                            "score": f"{home_score} - {away_score}",
-                            "winner": winner,
-                            "prediction": info["prediction"],
-                            "won": prediction_won,
-                            "emoji": result_emoji
-                        })
-                        del sent[match_id]
-
-        except Exception as e:
-            print(f"Error checking {match_id}: {e}")
+            except Exception as e:
+                print(f"Error checking {match_id}: {e}")
+        
+        # Check Football results via API-Football
+        else:
+            try:
+                match_id_num = match_id.replace("fd_", "")
+                # Try to get match details
+                url = f"https://api.football-data-org/v4/matches/{match_id_num}"
+                response = requests.get(url, headers=football_headers, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    status = data.get("status", "")
+                    
+                    if status in ["FINISHED", "AWARDED"]:
+                        home_score = data.get("score", {}).get("fullTime", {}).get("home")
+                        away_score = data.get("score", {}).get("fullTime", {}).get("away")
+                        
+                        if home_score is not None and away_score is not None:
+                            if home_score > away_score:
+                                winner = info["team1"]
+                            elif away_score > home_score:
+                                winner = info["team2"]
+                            else:
+                                winner = "Draw"
+                            
+                            prediction_won = winner == info["prediction"]
+                            result_emoji = "✅" if prediction_won else "❌"
+                            
+                            results.append({
+                                "game": info["game"],
+                                "team1": info["team1"],
+                                "team2": info["team2"],
+                                "score": f"{home_score} - {away_score}",
+                                "winner": winner,
+                                "prediction": info["prediction"],
+                                "won": prediction_won,
+                                "emoji": result_emoji
+                            })
+                            del sent[match_id]
+                            
+            except Exception as e:
+                print(f"Error checking football {match_id}: {e}")
 
     save_sent_predictions(sent)
     return results
@@ -430,17 +302,13 @@ def check_results():
 
 # ============ MAIN ============
 def send_predictions():
-    # Get European football from API-Football
     football_matches = get_football_matches()
-
-    # Get US sports from BetStack
     us_matches = get_betstack_matches()
 
-    # Combine - football first, then US sports
     matches = football_matches + us_matches
 
     if not matches:
-        send_message("🎯 No upcoming matches in 72h. Try again later.")
+        send_message("🎯 No upcoming matches. Try again later.")
         return
 
     sent = load_sent_predictions()
@@ -454,7 +322,6 @@ def send_predictions():
 
         team1 = match["team1"]
         team2 = match["team2"]
-
         prediction = make_prediction(match)
 
         game_emoji = {
@@ -514,7 +381,6 @@ def send_results():
             "Hockey": "🏒",
             "Baseball": "⚾",
         }.get(r["game"], "🏆")
-
 
         message += f"{game_emoji} {r['team1']} vs {r['team2']}\n"
         message += f"Score: {r['score']} {r['emoji']}\n"
